@@ -9,7 +9,7 @@ type LinkRecord = { code: string; target_url: string; visits: number; created_at
 type LinkPage = { links: LinkRecord[]; hasMore: boolean }
 
 export function LinkWorkspace() {
-  const [mode, setMode] = useState<Mode>("forwarder")
+  const [mode, setMode] = useState<Mode>("redirect")
   const [targetUrl, setTargetUrl] = useState("")
   const [alias, setAlias] = useState("")
   const [phone, setPhone] = useState("")
@@ -146,9 +146,9 @@ export function LinkWorkspace() {
 
             <form onSubmit={create} className="mt-8 rounded-[1.75rem] border border-[#10221C]/10 bg-white p-5 shadow-[0_24px_60px_-36px_rgba(16,34,28,0.45)] sm:p-7">
               <div className="mb-7 grid grid-cols-3 gap-2 rounded-2xl bg-[#F3F6F4] p-1.5">
+                <ModeButton active={mode === "redirect"} onClick={() => setMode("redirect")} icon={<Link2 size={15} />} label="Code redirect" />
                 <ModeButton active={mode === "forwarder"} onClick={() => setMode("forwarder")} icon={<ArrowUpRight size={15} />} label="Forwarder" />
                 <ModeButton active={mode === "whatsapp"} onClick={() => setMode("whatsapp")} icon={<WhatsAppIcon />} label="WhatsApp" />
-                <ModeButton active={mode === "redirect"} onClick={() => setMode("redirect")} icon={<Link2 size={15} />} label="Code redirect" />
               </div>
               {mode === "whatsapp" ? (
                 <>
@@ -190,9 +190,9 @@ export function LinkWorkspace() {
           <aside className="h-fit rounded-[1.75rem] bg-[#10221C] p-6 text-[#F4F7F2] lg:sticky lg:top-8">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">Supported links</p>
             <dl className="mt-6 space-y-6 text-sm">
+              <Info title="Code redirect" text="/code stores a destination and increments visits." />
               <Info title="Forwarder" text="/link?url=... sends visitors to any HTTP or HTTPS destination." />
               <Info title="WhatsApp" text="Tracked /code links open wa.me chats with an optional message." />
-              <Info title="Code redirect" text="/code stores a destination and increments visits." />
             </dl>
           </aside>
         </div>

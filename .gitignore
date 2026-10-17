@@ -28,5 +28,8 @@ yarn-error.log*
 !.env.example
 .env*.local
 
+# local database
+/data
+
 # vercel
 .vercel

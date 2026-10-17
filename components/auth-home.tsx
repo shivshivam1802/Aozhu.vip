@@ -1,22 +1,17 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Check, Copy, LogIn, UserPlus, Wallet } from "lucide-react"
+import { ArrowRight, LogIn } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Logo } from "@/components/logo"
 
 export function AuthHome() {
-  const [mode, setMode] = useState<"login" | "register">("login")
   const [user, setUser] = useState<{ fullName: string; email: string } | null>(null)
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
-  const [copiedWallet, setCopiedWallet] = useState(false)
   const [fields, setFields] = useState({
-    fullName: "",
     email: "",
     password: "",
-    transactionHash: "",
-    walletAddress: "",
   })
 
   useEffect(() => {
@@ -26,37 +21,21 @@ export function AuthHome() {
       .catch(() => setUser(null))
   }, [])
 
-  const updateField = (name: string, value: string) => setFields((current) => ({ ...current, [name]: value }))
-  const walletAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET_ADDRESS || ""
-  const walletQr = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(walletAddress)}`
-
-  const copyWallet = async () => {
-    await navigator.clipboard.writeText(walletAddress)
-    setCopiedWallet(true)
-    window.setTimeout(() => setCopiedWallet(false), 1800)
-  }
-
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
     setMessage("")
 
-    const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register"
-    const body = mode === "login"
-      ? { email: fields.email, password: fields.password }
-      : fields
-
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ email: fields.email, password: fields.password }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Something went wrong")
-      setMessage(mode === "login" ? "Signed in. Open the builder when you are ready." : "Account created. You can sign in once payment is reviewed.")
-      if (mode === "login") setUser(data.user)
-      else setMode("login")
+      setMessage("Signed in. Open the builder when you are ready.")
+      setUser(data.user)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Something went wrong")
     } finally {
@@ -103,41 +82,16 @@ export function AuthHome() {
               </div>
             ) : (
               <>
-                <div className="mb-7 grid grid-cols-2 rounded-full bg-[#F3F6F4] p-1">
-                  <button type="button" onClick={() => setMode("login")} className={`inline-flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold ${mode === "login" ? "bg-[#10221C] text-[#F4F7F2]" : "text-[#10221C]/45"}`}>
-                    <LogIn size={15} /> Sign in
-                  </button>
-                  <button type="button" onClick={() => setMode("register")} className={`inline-flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold ${mode === "register" ? "bg-[#10221C] text-[#F4F7F2]" : "text-[#10221C]/45"}`}>
-                    <UserPlus size={15} /> Register
-                  </button>
-                </div>
-                <form onSubmit={submit} className="space-y-4">
-                  {mode === "register" && <Field label="Name" value={fields.fullName} onChange={(value) => updateField("fullName", value)} />}
-                  <Field label="Email" type="email" value={fields.email} onChange={(value) => updateField("email", value)} />
-                  <Field label="Password" type="password" value={fields.password} onChange={(value) => updateField("password", value)} />
-                  {mode === "register" && (
-                    <>
-                      <div className="rounded-2xl border border-[#0E7A62]/25 bg-[#F3F6F4] p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0E7A62]"><Wallet size={14} /> Web3 access</p>
-                            <p className="mt-2 text-sm font-semibold">Send 10 USDT on TRON (TRC20)</p>
-                            <p className="mt-1 text-xs leading-5 text-[#10221C]/55">Submit the transaction hash below for account review.</p>
-                          </div>
-                          <img src={walletQr} alt="USDT wallet QR code" className="size-16 rounded-lg bg-white p-1" />
-                        </div>
-                        <button type="button" onClick={copyWallet} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-[#10221C]/10 bg-white px-3 py-2 text-left text-xs font-mono hover:border-[#0E7A62]">
-                          <span className="min-w-0 flex-1 truncate">{walletAddress}</span>
-                          {copiedWallet ? <Check size={14} /> : <Copy size={14} />}
-                        </button>
-                      </div>
-                      <Field label="Transaction hash" value={fields.transactionHash} onChange={(value) => updateField("transactionHash", value)} />
-                      <Field label="Wallet address (optional)" value={fields.walletAddress} onChange={(value) => updateField("walletAddress", value)} />
-                    </>
-                  )}
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#0E7A62]">
+                  <LogIn size={15} /> Sign in
+                </p>
+                <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight">Open the studio</h2>
+                <form onSubmit={submit} className="mt-7 space-y-4">
+                  <Field label="Email" type="email" value={fields.email} onChange={(value) => setFields((current) => ({ ...current, email: value }))} />
+                  <Field label="Password" type="password" value={fields.password} onChange={(value) => setFields((current) => ({ ...current, password: value }))} />
                   {message && <p className="text-sm leading-5 text-[#0E7A62]">{message}</p>}
                   <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#10221C] px-4 py-3 text-sm font-semibold text-[#F4F7F2] transition hover:bg-[#0E7A62] disabled:opacity-50">
-                    {loading ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
+                    {loading ? "Working..." : "Sign in"}
                     <ArrowRight size={16} />
                   </button>
                 </form>
@@ -155,7 +109,7 @@ function Field({ label, value, onChange, type = "text" }: { label: string; value
     <label className="block text-sm font-medium">
       {label}
       <input
-        required={label !== "Wallet address (optional)"}
+        required
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

@@ -7,20 +7,27 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password } = body
 
-    if (!email || !password) {
+    const submittedEmail = String(email).trim()
+    const submittedPassword = String(password)
+
+    if (!submittedEmail || !submittedPassword) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
+    const studioEmail = (process.env["DEMO_EMAIL"] || "").trim()
+    const studioPassword = (process.env["DEMO_PASSWORD"] || "").trim()
+    const studioName = (process.env["DEMO_NAME"] || "AOZHU").trim()
+
     if (
-      process.env.DEMO_EMAIL &&
-      process.env.DEMO_PASSWORD &&
-      email.toLowerCase() === process.env.DEMO_EMAIL.toLowerCase() &&
-      password === process.env.DEMO_PASSWORD
+      studioEmail &&
+      studioPassword &&
+      submittedEmail.toLowerCase() === studioEmail.toLowerCase() &&
+      submittedPassword === studioPassword
     ) {
       const payload = {
         id: "demo-user",
-        email: process.env.DEMO_EMAIL,
-        fullName: process.env.DEMO_NAME || "Demo Workspace",
+        email: studioEmail,
+        fullName: studioName,
         role: "admin" as const,
         paymentStatus: "verified" as const,
       }
@@ -37,14 +44,14 @@ export async function POST(request: Request) {
     }
 
     const db = readDb()
-    const user = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase())
+    const user = db.users.find((u) => u.email.toLowerCase() === submittedEmail.toLowerCase())
 
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
     // Verify Password
-    const isValid = verifyPassword(password, user.passwordHash, user.passwordSalt)
+    const isValid = verifyPassword(submittedPassword, user.passwordHash, user.passwordSalt)
     if (!isValid) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }

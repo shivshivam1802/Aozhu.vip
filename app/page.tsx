@@ -175,7 +175,7 @@ function LegacyHome() {
       throw new Error(data.error || "Unable to create tracked link")
     }
 
-    const generatedUrl = `${origin}/r/${encodeURIComponent(data.code)}`
+    const generatedUrl = `${origin}/${encodeURIComponent(data.code)}`
     setActiveStatsUrl(`${origin}/stats/${encodeURIComponent(data.code)}`)
     return generatedUrl
   }
@@ -398,7 +398,7 @@ function LegacyHome() {
         type: "redirect",
         title:
           alias && isPremium
-            ? `Custom Redirect: /r/${alias}`
+            ? `Custom Redirect: /${alias}`
             : `Redirect to: ${new URL(targetUrl).hostname}`,
         originalUrl: targetUrl,
         generatedUrl,
@@ -448,7 +448,7 @@ function LegacyHome() {
         type: "utm",
         title:
           alias && isPremium
-            ? `Custom UTM: /r/${alias}`
+            ? `Custom UTM: /${alias}`
             : `UTM Campaign for: ${urlObj.hostname}`,
         originalUrl: finalUrl,
         generatedUrl: generatedUrl,

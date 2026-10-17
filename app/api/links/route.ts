@@ -41,7 +41,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid HTTP or HTTPS URL is required" }, { status: 400 })
     }
 
-    if (alias && !/^[a-zA-Z0-9_-]+$/.test(alias)) {
+    const reservedCodes = new Set(["about", "admin", "api", "contact", "favicon", "generate", "icon", "link", "logo", "manifest", "r", "robots", "services", "sitemap"])
+    if (alias && (!/^[a-zA-Z0-9_-]+$/.test(alias) || reservedCodes.has(alias))) {
       return NextResponse.json({ error: "Invalid alias" }, { status: 400 })
     }
 

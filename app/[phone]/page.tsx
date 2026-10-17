@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { findOrCreateLink, incrementLinkVisits } from "@/lib/neon";
+import { findOrCreateLink, incrementLinkVisits, visitTrackedLink } from "@/lib/neon";
 
 export default async function Page({
   params,
@@ -9,6 +9,9 @@ export default async function Page({
   searchParams?: Promise<{ text?: string }>;
 }) {
   const { phone } = await params;
+  const trackedDestination = await visitTrackedLink(phone);
+  if (trackedDestination) redirect(trackedDestination);
+
   const sp = searchParams ? await searchParams : {};
   const text = sp?.text;
 

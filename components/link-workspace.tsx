@@ -107,7 +107,20 @@ export function LinkWorkspace() {
     }
   }
 
-  const trackedUrl = result ? `${origin}/r/${encodeURIComponent(result.code)}` : ""
+  const updateDestination = async (code: string, nextTarget: string) => {
+    const response = await fetch(`/api/links/${encodeURIComponent(code)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUrl: nextTarget }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || "Unable to update link")
+    const updated = data as LinkRecord
+    setLinks((current) => current.map((link) => link.code === updated.code ? { ...link, ...updated } : link))
+    setResult((current) => current && current.code === updated.code ? { ...current, ...updated } : current)
+  }
+
+  const trackedUrl = result ? `${origin}/${encodeURIComponent(result.code)}` : ""
   const directUrl = result ? `${origin}/link?url=${encodeURIComponent(result.target_url)}` : ""
   const copy = (value: string) => navigator.clipboard.writeText(value)
 
@@ -160,7 +173,7 @@ export function LinkWorkspace() {
                 <label className="mt-5 block text-sm font-semibold">
                   Custom code <span className="font-normal text-[#10221C]/45">optional</span>
                   <div className="mt-2 flex items-center rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] focus-within:border-[#0E7A62]">
-                    <span className="px-3 text-sm text-[#10221C]/40">/r/</span>
+                    <span className="px-3 text-sm text-[#10221C]/40">/</span>
                     <input pattern="[A-Za-z0-9_-]+" title="Use letters, numbers, underscores, or dashes" value={alias} onChange={(event) => setAlias(event.target.value)} placeholder="spring-offer" className="min-w-0 flex-1 bg-transparent px-1 py-3 outline-none" />
                   </div>
                   <span className="mt-2 block text-xs font-normal text-[#10221C]/50">Letters, numbers, underscores, and dashes only.</span>
@@ -178,8 +191,8 @@ export function LinkWorkspace() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">Supported links</p>
             <dl className="mt-6 space-y-6 text-sm">
               <Info title="Forwarder" text="/link?url=... sends visitors to any HTTP or HTTPS destination." />
-              <Info title="WhatsApp" text="Tracked /r/ codes open wa.me chats with an optional message." />
-              <Info title="Code redirect" text="/r/[code] stores a destination and increments visits." />
+              <Info title="WhatsApp" text="Tracked /code links open wa.me chats with an optional message." />
+              <Info title="Code redirect" text="/code stores a destination and increments visits." />
             </dl>
           </aside>
         </div>
@@ -200,8 +213,7 @@ export function LinkWorkspace() {
               <Result label="Direct forwarder" value={directUrl} onCopy={() => copy(directUrl)} />
               <div className="rounded-2xl bg-[#F3F6F4] p-5">
                 <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Destination</p>
-                <p className="mt-4 break-all text-sm leading-6">{result.target_url}</p>
-                <p className="mt-4 text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Live visits are shown above</p>
+                <DestinationEditor code={result.code} targetUrl={result.target_url} onSave={updateDestination} />
               </div>
             </div>
           </section>
@@ -224,7 +236,7 @@ export function LinkWorkspace() {
           </form>
           {searchTerm && <p className="mt-3 text-xs text-[#10221C]/50">Showing results for “{searchTerm}”.</p>}
           <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#10221C]/10 bg-white">
-            {links.map((link) => <LedgerRow key={link.code} link={link} origin={origin} />)}
+            {links.map((link) => <LedgerRow key={link.code} link={link} origin={origin} onSave={updateDestination} />)}
             {!links.length && !loadingMore && <p className="px-5 py-8 text-sm text-[#10221C]/55">No tracked links match this search.</p>}
           </div>
           <div ref={sentinel} className="flex flex-col items-center gap-3 py-8 text-sm text-[#10221C]/50">
@@ -278,25 +290,78 @@ function Result({ label, value, onCopy }: { label: string; value: string; onCopy
   )
 }
 
-function LedgerRow({ link, origin }: { link: LinkRecord; origin: string }) {
+function LedgerRow({ link, origin, onSave }: { link: LinkRecord; origin: string; onSave: (code: string, targetUrl: string) => Promise<void> }) {
   const isWhatsApp = link.target_url.includes("wa.me/") || link.target_url.includes("api.whatsapp.com/")
   const isExternalUrl = /^https?:\/\//i.test(link.target_url)
-  const previewUrl = isWhatsApp || isExternalUrl ? link.target_url : `${origin}/r/${link.code}`
+  const previewUrl = isWhatsApp || isExternalUrl ? link.target_url : `${origin}/${link.code}`
   const type = isWhatsApp ? "WhatsApp" : isExternalUrl ? "Forwarder" : "Code redirect"
 
   return (
-    <div className="flex flex-col gap-3 border-b border-[#10221C]/8 px-5 py-5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
+    <div className="flex flex-col gap-4 border-b border-[#10221C]/8 px-5 py-5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0E7A62]">
           <ScrollText size={14} /> {type}
         </div>
         <p className="mt-2 truncate text-sm font-semibold">{previewUrl}</p>
-        <p className="mt-1 truncate text-sm text-[#10221C]/50">{origin}/r/{link.code}</p>
+        <p className="mt-1 truncate text-sm text-[#10221C]/50">{origin}/{link.code}</p>
+        <DestinationEditor code={link.code} targetUrl={link.target_url} onSave={onSave} />
       </div>
       <div className="sm:text-right">
         <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Visits</p>
         <p className="mt-1 font-display text-3xl font-semibold">{link.visits.toLocaleString()}</p>
       </div>
     </div>
+  )
+}
+
+function DestinationEditor({ code, targetUrl, onSave }: { code: string; targetUrl: string; onSave: (code: string, targetUrl: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(targetUrl)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => setDraft(targetUrl), [targetUrl])
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSaving(true)
+    setError("")
+    try {
+      await onSave(code, draft)
+      setEditing(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to update link")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="mt-3">
+        <p className="break-all text-sm leading-6 text-[#10221C]/70">{targetUrl}</p>
+        <button type="button" onClick={() => setEditing(true)} className="mt-2 text-sm font-semibold text-[#0E7A62] hover:underline">
+          Edit destination
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={save} className="mt-3 space-y-2">
+      <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#10221C]/45">
+        Final destination
+        <input required type="url" value={draft} onChange={(event) => setDraft(event.target.value)} className="mt-2 w-full rounded-xl border border-[#10221C]/15 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-[#10221C] outline-none focus:border-[#0E7A62]" />
+      </label>
+      {error && <p className="text-sm text-[#9a3412]">{error}</p>}
+      <div className="flex gap-3">
+        <button disabled={saving} className="rounded-full bg-[#10221C] px-4 py-2 text-sm font-semibold text-[#F4F7F2] hover:bg-[#0E7A62] disabled:opacity-50">
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button type="button" onClick={() => { setEditing(false); setDraft(targetUrl); setError("") }} className="text-sm font-semibold text-[#10221C]/60">
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }

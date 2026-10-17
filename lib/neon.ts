@@ -78,6 +78,25 @@ export async function findOrCreateLink(targetUrl: string, alias?: string) {
   return rows[0]
 }
 
+export async function visitTrackedLink(code: string) {
+  const normalized = decodeURIComponent(code).trim()
+  if (!normalized) return ""
+
+  await ensureLinksTable()
+  const candidates = [...new Set([normalized, normalized.toLowerCase()])]
+  for (const candidate of candidates) {
+    const rows = (await sql`
+      UPDATE links
+      SET visits = visits + 1
+      WHERE code = ${candidate}
+      RETURNING target_url
+    `) as Array<{ target_url: string }>
+    if (rows[0]?.target_url) return rows[0].target_url
+  }
+
+  return ""
+}
+
 export async function incrementLinkVisits(code: string) {
   const rows = (await sql`
     UPDATE links

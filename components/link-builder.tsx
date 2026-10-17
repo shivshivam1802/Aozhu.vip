@@ -39,7 +39,7 @@ export function LinkBuilder() {
     if (response.ok) setResult(await response.json())
   }
 
-  const trackedUrl = result ? `${origin}/r/${encodeURIComponent(result.code)}` : ""
+  const trackedUrl = result ? `${origin}/${encodeURIComponent(result.code)}` : ""
   const directUrl = result ? `${origin}/link?url=${encodeURIComponent(targetUrl)}` : ""
   const copy = (value: string) => navigator.clipboard.writeText(value)
 
@@ -59,7 +59,7 @@ export function LinkBuilder() {
 
             <form onSubmit={create} className="mt-8 rounded-[1.75rem] border border-[#10221C]/10 bg-white p-5 sm:p-7">
               <label className="block text-sm font-semibold">Destination URL<input required type="url" placeholder="https://example.com/offer" value={targetUrl} onChange={(event) => setTargetUrl(event.target.value)} className="mt-2 w-full rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 py-3 outline-none focus:border-[#0E7A62]" /></label>
-              <label className="mt-5 block text-sm font-semibold">Custom alias <span className="font-normal text-[#10221C]/45">optional</span><div className="mt-2 flex items-center rounded-xl border border-[#10221C]/15 bg-[#F7FAF8]"><span className="px-3 text-sm text-[#10221C]/40">/r/</span><input value={alias} onChange={(event) => setAlias(event.target.value)} placeholder="spring-offer" className="min-w-0 flex-1 bg-transparent px-1 py-3 outline-none" /></div></label>
+              <label className="mt-5 block text-sm font-semibold">Custom alias <span className="font-normal text-[#10221C]/45">optional</span><div className="mt-2 flex items-center rounded-xl border border-[#10221C]/15 bg-[#F7FAF8]"><span className="px-3 text-sm text-[#10221C]/40">/</span><input value={alias} onChange={(event) => setAlias(event.target.value)} placeholder="spring-offer" className="min-w-0 flex-1 bg-transparent px-1 py-3 outline-none" /></div></label>
               {error && <p className="mt-4 text-sm text-[#9a3412]">{error}</p>}
               <button disabled={busy} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#10221C] px-5 py-3 text-sm font-semibold text-[#F4F7F2] hover:bg-[#0E7A62] disabled:opacity-50">{busy ? "Creating..." : "Create tracked link"}<ArrowUpRight size={16} /></button>
             </form>
@@ -68,7 +68,7 @@ export function LinkBuilder() {
           <aside className="h-fit rounded-[1.75rem] bg-[#10221C] p-6 text-[#F4F7F2]">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">What gets tracked</p>
             <dl className="mt-6 space-y-6 text-sm">
-              <Info title="Alias links" text="/r/your-alias links created here." />
+              <Info title="Alias links" text="/your-alias links created here." />
               <Info title="Direct forwarders" text="/link?url=... requests are counted too." />
               <Info title="Visit totals" text="Every redirect increments its Neon row." />
             </dl>

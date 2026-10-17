@@ -2,14 +2,14 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GAUR LINKS",
-    short_name: "GAUR LINKS",
+    name: "AOZHU",
+    short_name: "AOZHU",
     description:
-      "GAUR LINKS is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
+      "AOZHU is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f4f1ea",
-    theme_color: "#202522",
+    background_color: "#F3F6F4",
+    theme_color: "#10221C",
     icons: [
       {
         src: "/icon.svg",

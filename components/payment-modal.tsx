@@ -52,7 +52,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "gaur_links_payment_qr.png";
+        a.download = "aozhu_payment_qr.png";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -156,7 +156,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
             </div>
             <div>
               <h2 className="text-xl font-bold font-[family-name:var(--font-poppins)] tracking-tight">Unlock Premium</h2>
-              <p className="text-xs text-neutral-400">Upgrade your GAUR LINKS experience</p>
+              <p className="text-xs text-neutral-400">Upgrade your AOZHU experience</p>
             </div>
           </div>
           <button 

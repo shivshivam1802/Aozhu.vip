@@ -1,53 +1,56 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Poppins } from "next/font/google"
+import { Manrope, Syne } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-manrope",
 })
 
-const poppins = Poppins({
+const syne = Syne({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-poppins",
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-syne",
 })
 
 export const metadata: Metadata = {
-  title: "GAUR LINKS – Dynamic Redirector, Smart Redirect & UTM Builder",
+  metadataBase: new URL("https://gaurmarketing.com"),
+  title: "AOZHU – Dynamic Redirector, Smart Redirect & UTM Builder",
   description:
-    "GAUR LINKS is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
+    "AOZHU is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
   keywords:
-    "GAUR LINKS, Dynamic Redirector, Smart Redirect, WhatsApp Link Generator, UTM Builder, QR Code Generator, Smart Links, URL Shortener, Marketing Tools",
+    "AOZHU, Dynamic Redirector, Smart Redirect, WhatsApp Link Generator, UTM Builder, QR Code Generator, Smart Links, URL Shortener, Marketing Tools",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
   },
   openGraph: {
-    title: "GAUR LINKS – Dynamic Redirector & Smart Link Generator",
+    title: "AOZHU – Dynamic Redirector & Smart Link Generator",
     description: "Generate WhatsApp links, smart redirects, UTM URLs, and QR codes instantly.",
-    siteName: "GAUR LINKS",
+    siteName: "AOZHU",
     url: "https://gaurmarketing.com",
     type: "website",
+    images: [{ url: "/logo.svg", alt: "AOZHU" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GAUR LINKS – Dynamic Redirector",
+    title: "AOZHU – Dynamic Redirector",
     description: "Build WhatsApp links, Smart Redirects, and UTM Campaign URLs in seconds.",
+    images: ["/logo.svg"],
   },
-  applicationName: "GAUR LINKS",
+  applicationName: "AOZHU",
   generator: "Next.js"
 }
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "GAUR LINKS",
-  "alternateName": "GAUR LINKS Dynamic Redirector",
+  "name": "AOZHU",
+  "alternateName": "AOZHU Dynamic Redirector",
   "url": "https://gaurmarketing.com",
-  "description": "GAUR LINKS is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
+  "description": "AOZHU is a powerful smart link generator that lets users create WhatsApp direct chat links, dynamic redirects, UTM campaign URLs, QR codes, and shareable smart links instantly.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "All",
   "offers": {
@@ -63,7 +66,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+    <html lang="en" className={`${manrope.variable} ${syne.variable}`}>
       <body className="font-sans antialiased">
         <script
           type="application/ld+json"

@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
-import { MessageSquare, Link2, Globe, QrCode, CheckCircle2 } from "lucide-react"
+import { MessageSquare, Link2, Globe, QrCode, ArrowUpRight } from "lucide-react"
 
 export default function ServicesPage() {
   const router = useRouter();
@@ -26,15 +24,15 @@ export default function ServicesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen bg-[#F3F6F4] text-[#10221C] flex items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#10221C]/15 border-t-[#0E7A62]"></div>
       </div>
     );
   }
 
   const services = [
     {
-      icon: <MessageSquare className="w-12 h-12 text-accent" />,
+      icon: MessageSquare,
       title: "WhatsApp Direct Chat Links",
       description:
         "Generate direct click-to-chat links for any phone number with pre-filled custom message templates so customers can reach you instantly.",
@@ -46,7 +44,7 @@ export default function ServicesPage() {
       ],
     },
     {
-      icon: <Link2 className="w-12 h-12 text-accent" />,
+      icon: Link2,
       title: "Smart Redirect Links",
       description:
         "Create lightweight, stateless redirection links that forward visitors to any URL securely, using either clean readable paths or base64 obfuscation.",
@@ -58,7 +56,7 @@ export default function ServicesPage() {
       ],
     },
     {
-      icon: <Globe className="w-12 h-12 text-accent" />,
+      icon: Globe,
       title: "UTM Campaign Builder",
       description:
         "Standardize and build your marketing campaign URLs with Google Analytics UTM parameters to easily track your traffic sources and mediums.",
@@ -70,7 +68,7 @@ export default function ServicesPage() {
       ],
     },
     {
-      icon: <QrCode className="w-12 h-12 text-accent" />,
+      icon: QrCode,
       title: "Instant QR Code Generator",
       description:
         "Get instant, downloadable QR code images for any of your generated links to place on brochures, flyers, slides, and packaging.",
@@ -84,69 +82,55 @@ export default function ServicesPage() {
   ]
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#F3F6F4] text-[#10221C]">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="relative bg-primary pt-32 pb-24 md:pt-40 md:pb-32">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl font-bold font-[family-name:var(--font-poppins)] text-white mb-6 text-balance">
-              Our <span className="text-accent">Utilities</span>
-            </h1>
-            <p className="text-lg md:text-xl text-white/90 leading-relaxed">
-              Comprehensive smart linking utilities designed to help your campaigns run efficiently
+      <main className="mx-auto max-w-6xl px-5 pb-8 pt-28 sm:px-8">
+        <section className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#0E7A62]">What we build</p>
+          <h1 className="mt-4 font-display text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl">
+            Our Utilities
+          </h1>
+          <p className="mt-6 text-lg leading-8 text-[#10221C]/70">
+            Comprehensive smart linking utilities designed to help your campaigns run efficiently
+          </p>
+        </section>
+
+        <section className="mt-14 divide-y divide-[#10221C]/10 overflow-hidden rounded-[2rem] border border-[#10221C]/10 bg-white">
+          {services.map((service, index) => (
+            <article key={service.title} className="grid gap-6 px-6 py-8 md:grid-cols-[120px_1fr] md:px-8">
+              <div className="flex items-start justify-between md:block">
+                <span className="font-display text-sm text-[#0E7A62]">0{index + 1}</span>
+                <service.icon className="h-7 w-7 text-[#10221C] md:mt-4" />
+              </div>
+              <div>
+                <h2 className="font-display text-3xl font-semibold">{service.title}</h2>
+                <p className="mt-3 max-w-2xl text-[#10221C]/65 leading-7">{service.description}</p>
+                <ul className="mt-5 flex flex-wrap gap-2">
+                  {service.features.map((feature) => (
+                    <li key={feature} className="rounded-full bg-[#F3F6F4] px-3 py-1.5 text-xs font-medium text-[#10221C]/75">
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="my-16 grid overflow-hidden rounded-[2rem] bg-[#10221C] text-[#F4F7F2] md:grid-cols-[1.4fr_0.6fr]">
+          <div className="p-8 sm:p-12">
+            <h2 className="font-display text-4xl font-semibold md:text-5xl">Ready to Build a Link?</h2>
+            <p className="mt-4 max-w-xl text-[#F4F7F2]/70">
+              Start creating your custom WhatsApp links, redirects, and campaign URLs right now.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* Services Grid */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {services.map((service, index) => (
-              <Card
-                key={index}
-                className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 border-transparent hover:border-accent/20"
-              >
-                <CardContent className="p-8">
-                  <div className="mb-6 transform group-hover:scale-110 transition-transform duration-300">
-                    {service.icon}
-                  </div>
-                  <h3 className="text-2xl font-bold font-[family-name:var(--font-poppins)] text-primary mb-4">
-                    {service.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed mb-6">{service.description}</p>
-                  <ul className="space-y-3">
-                    {service.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5 mr-2" />
-                        <span className="text-sm text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 bg-primary text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold font-[family-name:var(--font-poppins)] mb-6 text-balance">
-            Ready to Build a Link?
-          </h2>
-          <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Start creating your custom WhatsApp links, redirects, and campaign URLs right now.
-          </p>
-          <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white text-lg px-8 py-6">
-            <Link href="/">Launch Link Workspace</Link>
-          </Button>
-        </div>
-      </section>
+          <Link href="/" className="flex items-center justify-between gap-4 bg-[#C6F24E] px-8 py-8 text-[#10221C] transition hover:bg-[#d4f86a] sm:px-10">
+            <span className="font-display text-2xl font-semibold">Launch Link Workspace</span>
+            <ArrowUpRight className="h-6 w-6 shrink-0" />
+          </Link>
+        </section>
+      </main>
 
       <Footer />
     </div>

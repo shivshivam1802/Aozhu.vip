@@ -1,0 +1,7 @@
+<svg width="220" height="48" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AOZHU">
+  <rect width="48" height="48" rx="14" fill="#10221C"/>
+  <path d="M12 36L24 11.5L36 36" stroke="#F4F7F2" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 26.5H31" stroke="#C6F24E" stroke-width="3.6" stroke-linecap="round"/>
+  <circle cx="37.5" cy="13" r="2.4" fill="#C6F24E"/>
+  <text x="60" y="32" fill="#10221C" font-family="Syne, Manrope, sans-serif" font-size="22" font-weight="700" letter-spacing="3.4">AOZHU</text>
+</svg>

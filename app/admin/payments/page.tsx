@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Toaster } from "@/components/ui/sonner"
@@ -105,25 +105,23 @@ export default function AdminPaymentsPage() {
   })
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
-      <Toaster position="top-right" theme="dark" />
+    <div className="min-h-screen bg-[#F3F6F4] text-[#10221C] font-sans">
+      <Toaster position="top-right" />
       <Navbar />
-
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="container mx-auto px-4 pt-32 pb-16 relative z-10 max-w-6xl">
         <div className="flex items-center justify-between mb-8">
           <div className="space-y-1">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white mb-2 cursor-pointer transition-all"
+              className="inline-flex items-center gap-1.5 text-xs text-[#10221C]/50 hover:text-[#0E7A62] mb-2 cursor-pointer transition-all"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back to Link Workspace
             </Link>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-400 to-purple-400">
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-[#10221C]">
               Admin Payments Console
             </h1>
-            <p className="text-neutral-400 text-sm">
+            <p className="text-[#10221C]/60 text-sm">
               Review, approve, or reject user transaction hashes for premium tier validation.
             </p>
           </div>
@@ -131,7 +129,7 @@ export default function AdminPaymentsPage() {
             onClick={fetchPayments}
             disabled={loading}
             variant="outline"
-            className="border-neutral-800 text-neutral-300 hover:bg-neutral-800"
+            className="border-[#10221C]/15 text-[#10221C] hover:bg-white"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           </Button>
@@ -139,16 +137,16 @@ export default function AdminPaymentsPage() {
 
         <div className="grid grid-cols-1 gap-6">
           {/* Controls Card */}
-          <Card className="bg-neutral-900/60 border-neutral-800 backdrop-blur-xl">
+          <Card className="bg-white border-[#10221C]/10 shadow-none">
             <CardContent className="p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
               {/* Search */}
               <div className="relative w-full md:max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#10221C]/40" />
                 <Input
                   placeholder="Search user, email, or TXID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-neutral-950 border-neutral-800 text-white pl-10 rounded-lg placeholder-neutral-600"
+                  className="bg-[#F7FAF8] border-[#10221C]/15 text-[#10221C] pl-10 rounded-lg placeholder-[#10221C]/35"
                 />
               </div>
 
@@ -160,8 +158,8 @@ export default function AdminPaymentsPage() {
                     onClick={() => setFilterStatus(status)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all border cursor-pointer ${
                       filterStatus === status
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                        ? "bg-[#10221C] border-[#10221C] text-[#F4F7F2]"
+                        : "bg-white border-[#10221C]/10 text-[#10221C]/60 hover:text-[#10221C]"
                     }`}
                   >
                     {status === "verified" ? "Approved" : status}
@@ -172,43 +170,43 @@ export default function AdminPaymentsPage() {
           </Card>
 
           {/* List Table Card */}
-          <Card className="bg-neutral-900/60 border-neutral-800 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <CardHeader className="border-b border-neutral-800 bg-neutral-900/40 p-4">
-              <CardTitle className="text-lg font-bold flex items-center gap-2 text-indigo-300">
-                <Lock className="w-4 h-4 text-indigo-500" /> Payment Receipts list
+          <Card className="bg-white border-[#10221C]/10 shadow-none overflow-hidden">
+            <CardHeader className="border-b border-[#10221C]/10 bg-[#F7FAF8] p-4">
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-[#10221C]">
+                <Lock className="w-4 h-4 text-[#0E7A62]" /> Payment Receipts list
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
-                  <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#10221C]/50">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#0E7A62]" />
                   <p className="text-sm">Loading users from backend database...</p>
                 </div>
               ) : filteredPayments.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-neutral-800 bg-neutral-950/40 text-neutral-400 text-xs font-semibold uppercase">
+                      <tr className="border-b border-[#10221C]/10 bg-[#F7FAF8] text-[#10221C]/50 text-xs font-semibold uppercase">
                         <th className="py-4 px-6">User Profile</th>
                         <th className="py-4 px-6">Transaction ID (TXID)</th>
                         <th className="py-4 px-6">Status</th>
                         <th className="py-4 px-6 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/60">
+                    <tbody className="divide-y divide-[#10221C]/8">
                       {filteredPayments.map((item) => (
-                        <tr key={item.id} className="hover:bg-neutral-900/20 group">
+                        <tr key={item.id} className="hover:bg-[#F7FAF8] group">
                           {/* User Profile */}
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-neutral-950 border border-neutral-800 flex items-center justify-center text-indigo-400 font-bold text-xs uppercase">
+                              <div className="w-8 h-8 rounded-full bg-[#E7F7A8] border border-[#10221C]/10 flex items-center justify-center text-[#10221C] font-bold text-xs uppercase">
                                 {item.fullName.charAt(0)}
                               </div>
                               <div>
-                                <div className="font-bold text-neutral-200 flex items-center gap-1">
+                                <div className="font-bold text-[#10221C] flex items-center gap-1">
                                   {item.fullName}
                                 </div>
-                                <div className="text-xs text-neutral-500 flex items-center gap-1">
+                                <div className="text-xs text-[#10221C]/50 flex items-center gap-1">
                                   <Mail className="w-3 h-3" /> {item.email}
                                 </div>
                               </div>
@@ -219,12 +217,12 @@ export default function AdminPaymentsPage() {
                           <td className="py-4 px-6 font-mono text-xs">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-indigo-300 select-all truncate max-w-[180px] md:max-w-[280px]">
+                                <span className="text-[#0E7A62] select-all truncate max-w-[180px] md:max-w-[280px]">
                                   {item.transactionHash}
                                 </span>
                                 <button
                                   onClick={() => handleCopy(item.transactionHash, "Transaction Hash")}
-                                  className="text-neutral-500 hover:text-white p-0.5"
+                                  className="text-[#10221C]/40 hover:text-[#10221C] p-0.5"
                                   title="Copy TXID"
                                 >
                                   <Copy className="w-3.5 h-3.5" />
@@ -233,14 +231,14 @@ export default function AdminPaymentsPage() {
                                   href={`https://tronscan.org/#/transaction/${item.transactionHash}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-neutral-500 hover:text-indigo-400 p-0.5"
+                                  className="text-[#10221C]/40 hover:text-[#0E7A62] p-0.5"
                                   title="Check on TronScan"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </a>
                               </div>
                               {item.walletAddress && (
-                                <div className="text-[10px] text-neutral-500 truncate max-w-[220px]">
+                                <div className="text-[10px] text-[#10221C]/45 truncate max-w-[220px]">
                                   Sender: {item.walletAddress}
                                 </div>
                               )}
@@ -298,7 +296,7 @@ export default function AdminPaymentsPage() {
                                 </Button>
                               </div>
                             ) : (
-                              <span className="text-xs text-neutral-500 font-medium">Reviewed</span>
+                              <span className="text-xs text-[#10221C]/45 font-medium">Reviewed</span>
                             )}
                           </td>
                         </tr>
@@ -308,12 +306,12 @@ export default function AdminPaymentsPage() {
                 </div>
               ) : (
                 <div className="text-center py-20 space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-neutral-950 border border-neutral-800 flex items-center justify-center mx-auto text-neutral-600">
+                  <div className="w-16 h-16 rounded-full bg-[#F7FAF8] border border-[#10221C]/10 flex items-center justify-center mx-auto text-[#10221C]/40">
                     <UserIcon className="w-8 h-8" />
                   </div>
                   <div className="max-w-xs mx-auto">
-                    <h4 className="font-bold text-neutral-300 mb-1">No Payments Found</h4>
-                    <p className="text-neutral-500 text-sm">
+                    <h4 className="font-bold text-[#10221C] mb-1">No Payments Found</h4>
+                    <p className="text-[#10221C]/50 text-sm">
                       {searchQuery ? "No payment receipts matches the search query." : "Pending user registrations will list here."}
                     </p>
                   </div>

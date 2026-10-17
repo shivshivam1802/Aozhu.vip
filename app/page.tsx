@@ -208,7 +208,7 @@ function LegacyHome() {
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `gaur_links_history_${Date.now()}.csv`)
+    link.setAttribute("download", `aozhu_links_history_${Date.now()}.csv`)
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -231,7 +231,7 @@ function LegacyHome() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = "gaur_links_checkout_qr.png"
+        a.download = "aozhu_checkout_qr.png"
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -528,7 +528,7 @@ function LegacyHome() {
                 <Lock className="w-4 h-4" /> Secure Marketer Workspace
               </div>
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-400 to-purple-400">
-                GAUR LINKS
+                AOZHU
               </h1>
               <p className="text-neutral-400 text-sm max-w-md mx-auto leading-relaxed">
                 Activate Premium to unlock unlimited redirections, custom path aliases, UTM analytics tracking, QR codes,
@@ -891,7 +891,7 @@ function LegacyHome() {
                     Stateless Link Generation Workspace
                   </div>
                   <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-400 to-purple-400">
-                    GAUR DYNAMIC LINKS
+                    AOZHU
                   </h1>
                   <p className="text-neutral-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
                     Generate stateless redirection links, WhatsApp direct chat URLs, and campaign UTM codes instantly with
@@ -1232,7 +1232,7 @@ function LegacyHome() {
                                 <ExternalLink className="w-4 h-4" /> Test Link
                               </Button>
                               <Button
-                                onClick={() => downloadQrCode(activeLink, "gaur_link_qr.png")}
+                                onClick={() => downloadQrCode(activeLink, "aozhu_link_qr.png")}
                                 variant="outline"
                                 className="border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:text-white py-5 rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer"
                               >

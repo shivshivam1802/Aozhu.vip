@@ -1,8 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { Sparkles, Shield, LogOut, Info, Settings, Mail } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { LogOut, Menu, Shield, Sparkles, X } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Logo } from "@/components/logo"
 
 interface UserProfile {
   id: string
@@ -12,9 +14,17 @@ interface UserProfile {
   paymentStatus: "pending" | "verified" | "rejected"
 }
 
+const links = [
+  { href: "/about", label: "About" },
+  { href: "/services", label: "Features" },
+  { href: "/contact", label: "Support" },
+]
+
 export function Navbar() {
+  const pathname = usePathname()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [isPremium, setIsPremium] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const fetchUser = async () => {
     try {
@@ -40,6 +50,10 @@ export function Navbar() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
+
   const handleLogout = async () => {
     try {
       const res = await fetch("/api/auth/logout", { method: "POST" })
@@ -54,80 +68,92 @@ export function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-neutral-950/80 backdrop-blur-md border-b border-neutral-900 font-sans">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
-          <Link href="/" className="flex items-center space-x-2.5 group">
-            <img src="/icon.svg" alt="" className="h-10 w-10 rounded-xl transition-transform duration-200 group-hover:scale-105" />
-            <div>
-              <div className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5 leading-none">
-                GAUR <span className="text-indigo-400">LINKS</span>
-              </div>
-              <span className="text-[10px] text-neutral-500 uppercase tracking-widest leading-none font-semibold">
-                Dynamic Redirector
-              </span>
-            </div>
-          </Link>
+    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-full border border-[#10221C]/10 bg-[#F7FAF8]/90 px-3 py-2 shadow-[0_16px_40px_-28px_rgba(16,34,28,0.7)] backdrop-blur-xl sm:px-4">
+        <Logo />
 
-          {/* Navigation Links for Verified Users */}
-          {isPremium && (
-            <div className="hidden md:flex items-center space-x-6">
-              <Link href="/about" className="text-xs font-semibold text-neutral-400 hover:text-white transition-all">
-                About Tool
-              </Link>
-              <Link href="/services" className="text-xs font-semibold text-neutral-400 hover:text-white transition-all">
-                Our Features
-              </Link>
-              <Link href="/contact" className="text-xs font-semibold text-neutral-400 hover:text-white transition-all">
-                Get Support
-              </Link>
-            </div>
+        {isPremium && (
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+            {links.map((link) => {
+              const active = pathname === link.href
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    active ? "bg-[#10221C] text-[#F4F7F2]" : "text-[#10221C]/70 hover:bg-[#10221C]/5 hover:text-[#10221C]"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              )
+            })}
+          </nav>
+        )}
+
+        <div className="flex items-center gap-2">
+          {user?.role === "admin" && (
+            <Link
+              href="/admin/payments"
+              className="hidden items-center gap-1.5 rounded-full border border-[#10221C]/10 bg-white px-3 py-1.5 text-xs font-semibold text-[#10221C] transition hover:border-[#0E7A62] sm:inline-flex"
+            >
+              <Shield className="h-3.5 w-3.5 text-[#0E7A62]" />
+              Admin
+            </Link>
           )}
 
-          <div className="flex items-center space-x-3">
-            {/* Admin Panel Link */}
-            {user?.role === "admin" && (
-              <Link
-                href="/admin/payments"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-red-900/50 bg-red-950/20 text-xs text-red-400 hover:text-white hover:bg-red-900/20 transition-all duration-200"
+          {isPremium && user?.role !== "admin" && (
+            <span className="hidden items-center gap-1.5 rounded-full bg-[#E7F7A8] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-[#1A3A12] sm:inline-flex">
+              <Sparkles className="h-3.5 w-3.5" />
+              PREMIUM
+            </span>
+          )}
+
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span className="hidden max-w-[160px] truncate text-right text-xs text-[#10221C]/55 lg:block">{user.email}</span>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#10221C] px-3 py-2 text-xs font-semibold text-[#F4F7F2] transition hover:bg-[#0E7A62]"
               >
-                <Shield className="w-3.5 h-3.5 text-red-500" />
-                <span>Admin Console</span>
-              </Link>
-            )}
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          ) : (
+            <span className="hidden rounded-full border border-[#10221C]/10 bg-white px-3 py-1.5 text-[11px] font-medium text-[#10221C]/55 md:inline-flex">
+              v1.0.0 Stable
+            </span>
+          )}
 
-            {/* Premium Indicator */}
-            {isPremium && user?.role !== "admin" && (
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-xs text-amber-400 font-bold shadow-lg shadow-amber-500/5 animate-pulse">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/40" />
-                PREMIUM
-              </div>
-            )}
-
-            {/* User Session Info / Logout */}
-            {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden lg:block text-right">
-                  <span className="block text-[10px] text-neutral-500 uppercase tracking-wider">Signed in as</span>
-                  <span className="block text-xs font-mono text-indigo-300 font-semibold">{user.email}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 hover:text-red-400 hover:bg-red-950/10 hover:border-red-900/30 transition-all cursor-pointer"
-                  title="Log Out"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
-              </div>
-            ) : (
-              <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-xs text-neutral-400">
-                v1.0.0 Stable
-              </div>
-            )}
-          </div>
+          {isPremium && (
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#10221C]/10 bg-white md:hidden"
+              aria-expanded={open}
+              aria-label={open ? "Close menu" : "Open menu"}
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+          )}
         </div>
       </div>
-    </nav>
+
+      {open && isPremium && (
+        <nav className="mx-auto mt-2 flex max-w-6xl flex-col gap-1 rounded-3xl border border-[#10221C]/10 bg-[#F7FAF8] p-3 shadow-lg md:hidden" aria-label="Mobile">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="rounded-2xl px-4 py-3 text-sm font-medium text-[#10221C] hover:bg-white">
+              {link.label}
+            </Link>
+          ))}
+          {user?.role === "admin" && (
+            <Link href="/admin/payments" className="rounded-2xl px-4 py-3 text-sm font-medium text-[#10221C] hover:bg-white sm:hidden">
+              Admin Console
+            </Link>
+          )}
+        </nav>
+      )}
+    </header>
   )
 }

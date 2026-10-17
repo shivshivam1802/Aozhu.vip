@@ -4,11 +4,6 @@ import type React from "react"
 
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
 import { Mail, Phone, MapPin, Send } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -41,7 +36,6 @@ export default function ContactPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate form submission
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
     console.log("[v0] Form submitted:", formData)
@@ -66,205 +60,160 @@ export default function ContactPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen bg-[#F3F6F4] text-[#10221C] flex items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#10221C]/15 border-t-[#0E7A62]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#F3F6F4] text-[#10221C]">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="relative bg-primary pt-32 pb-24 md:pt-40 md:pb-32">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl font-bold font-[family-name:var(--font-poppins)] text-white mb-6 text-balance">
-              Get In <span className="text-accent">Touch</span>
-            </h1>
-            <p className="text-lg md:text-xl text-white/90 leading-relaxed">
-              Have questions about GAUR LINKS? Let's start a conversation about our smart redirect and dynamic link platform.
-            </p>
-          </div>
-        </div>
-      </section>
+      <main className="mx-auto max-w-6xl px-5 pb-16 pt-28 sm:px-8">
+        <section className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#0E7A62]">Contact</p>
+          <h1 className="mt-4 font-display text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl">
+            Get In Touch
+          </h1>
+          <p className="mt-6 text-lg leading-8 text-[#10221C]/70">
+            Have questions about AOZHU? Let&apos;s start a conversation about our smart redirect and dynamic link platform.
+          </p>
+        </section>
 
-      {/* Contact Section */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-            {/* Contact Form */}
-            <div>
-              <Card className="border-2">
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold font-[family-name:var(--font-poppins)] text-primary mb-2">
-                    Send Us a Message
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Fill out the form below and we'll get back to you within 24 hours
-                  </p>
+        <section className="mt-12 grid items-start gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <form onSubmit={handleSubmit} className="rounded-[2rem] border border-[#10221C]/10 bg-white p-6 shadow-[0_24px_60px_-40px_rgba(16,34,28,0.45)] sm:p-8">
+            <h2 className="font-display text-3xl font-semibold">Send Us a Message</h2>
+            <p className="mt-2 text-sm text-[#10221C]/60">Fill out the form below and we&apos;ll get back to you within 24 hours</p>
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        placeholder="John Doe"
-                        required
-                        className="h-12"
-                      />
-                    </div>
+            <div className="mt-7 grid gap-5 sm:grid-cols-2">
+              <Field label="Full Name *" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
+              <Field label="Email Address *" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="john@example.com" required />
+              <Field label="Phone Number" name="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="+1 (555) 123-4567" />
+              <Field label="Company Name" name="company" value={formData.company} onChange={handleChange} placeholder="Your Company" />
+            </div>
+            <label className="mt-5 block text-sm font-medium">
+              Your Message *
+              <textarea
+                id="message"
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                placeholder="Tell us about your feedback or question..."
+                required
+                rows={6}
+                className="mt-2 w-full resize-none rounded-2xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 py-3 outline-none focus:border-[#0E7A62] focus:bg-white"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#10221C] px-5 py-3 text-sm font-semibold text-[#F4F7F2] transition hover:bg-[#0E7A62] disabled:opacity-50"
+            >
+              {isSubmitting ? "Sending..." : <>Send Message <Send className="h-4 w-4" /></>}
+            </button>
+          </form>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address *</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="john@example.com"
-                        required
-                        className="h-12"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="+1 (555) 123-4567"
-                        className="h-12"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="company">Company Name</Label>
-                      <Input
-                        id="company"
-                        name="company"
-                        value={formData.company}
-                        onChange={handleChange}
-                        placeholder="Your Company"
-                        className="h-12"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="message">Your Message *</Label>
-                      <Textarea
-                        id="message"
-                        name="message"
-                        value={formData.message}
-                        onChange={handleChange}
-                        placeholder="Tell us about your feedback or question..."
-                        required
-                        rows={6}
-                        className="resize-none"
-                      />
-                    </div>
-
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full bg-accent hover:bg-accent/90 text-white"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        "Sending..."
-                      ) : (
-                        <>
-                          Send Message <Send className="ml-2 w-4 h-4" />
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+          <aside className="space-y-4">
+            <div className="rounded-[1.75rem] bg-[#10221C] p-7 text-[#F4F7F2]">
+              <h2 className="font-display text-3xl font-semibold">Contact Information</h2>
+              <p className="mt-3 text-sm leading-6 text-[#F4F7F2]/65">
+                Have questions? We&apos;re here to help! Reach out to us through any of the channels below.
+              </p>
             </div>
 
-            {/* Contact Information */}
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-bold font-[family-name:var(--font-poppins)] text-primary mb-6">
-                  Contact Information
-                </h2>
-                <p className="text-muted-foreground leading-relaxed mb-8">
-                  Have questions? We're here to help! Reach out to us through any of the channels below.
-                </p>
+            <InfoCard icon={MapPin} title="Office Address" lines={["AOZHU HQ, Alambagh, Lucknow"]} />
+            <InfoCard
+              icon={Phone}
+              title="Phone"
+              lines={["+91 99999 99999", "Mon-Fri: 9:00 AM - 6:00 PM IST"]}
+              href="tel:+919999999999"
+            />
+            <InfoCard
+              icon={Mail}
+              title="Email"
+              lines={["hello@gaurlinks.com", "support@gaurlinks.com"]}
+              hrefs={["mailto:hello@gaurlinks.com", "mailto:support@gaurlinks.com"]}
+            />
 
-                <div className="space-y-6">
-                  <Card>
-                    <CardContent className="p-6 flex items-start space-x-4">
-                      <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <MapPin className="w-6 h-6 text-accent" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-primary mb-1">Office Address</h3>
-                        <p className="text-muted-foreground">GAUR LINKS HQ, Alambagh, Lucknow</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6 flex items-start space-x-4">
-                      <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <Phone className="w-6 h-6 text-accent" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-primary mb-1">Phone</h3>
-                        <p className="text-muted-foreground">
-                          +91 99999 99999
-                          <br />
-                          Mon-Fri: 9:00 AM - 6:00 PM IST
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6 flex items-start space-x-4">
-                      <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <Mail className="w-6 h-6 text-accent" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-primary mb-1">Email</h3>
-                        <p className="text-muted-foreground">
-                          hello@gaurlinks.com
-                          <br />
-                          support@gaurlinks.com
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Map Placeholder */}
-              <Card className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="aspect-video bg-muted flex items-center justify-center">
-                    <div className="text-center">
-                      <MapPin className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">Google Maps Location</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="flex aspect-video flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-[#10221C]/20 bg-white text-[#10221C]/50">
+              <MapPin className="mb-2 h-10 w-10" />
+              <p className="text-sm">Google Maps Location</p>
             </div>
-          </div>
-        </div>
-      </section>
+          </aside>
+        </section>
+      </main>
 
       <Footer />
+    </div>
+  )
+}
+
+function Field({
+  label,
+  name,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  required = false,
+}: {
+  label: string
+  name: string
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  placeholder: string
+  type?: string
+  required?: boolean
+}) {
+  return (
+    <label className="block text-sm font-medium">
+      {label}
+      <input
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className="mt-2 h-12 w-full rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 outline-none focus:border-[#0E7A62] focus:bg-white"
+      />
+    </label>
+  )
+}
+
+function InfoCard({
+  icon: Icon,
+  title,
+  lines,
+  href,
+  hrefs,
+}: {
+  icon: typeof Mail
+  title: string
+  lines: string[]
+  href?: string
+  hrefs?: string[]
+}) {
+  return (
+    <div className="flex gap-4 rounded-[1.5rem] border border-[#10221C]/10 bg-white p-5">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E7F7A8] text-[#10221C]">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="font-semibold">{title}</h3>
+        <div className="mt-1 space-y-0.5 text-sm text-[#10221C]/65">
+          {lines.map((line, index) => {
+            const lineHref = hrefs?.[index] || (index === 0 ? href : undefined)
+            return lineHref ? (
+              <a key={line} href={lineHref} className="block hover:text-[#0E7A62]">{line}</a>
+            ) : (
+              <p key={line}>{line}</p>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

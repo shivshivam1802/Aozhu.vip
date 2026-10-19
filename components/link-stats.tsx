@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { LogOut } from "lucide-react"
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
+import { useDelayedPoll } from "@/lib/use-delayed-poll"
 
 type Breakdown = { label: string; count: number }
 type Activity = {
@@ -42,31 +43,58 @@ const tabs = [
 
 type Tab = (typeof tabs)[number]["id"]
 
+const STATS_POLL_MS = 20_000
+
 export function LinkStats({ code }: { code: string }) {
   const [stats, setStats] = useState<Stats | null>(null)
   const [error, setError] = useState("")
   const [tab, setTab] = useState<Tab>("summary")
   const [from, setFrom] = useState(dateInput(addDays(new Date(), -14)))
   const [to, setTo] = useState(dateInput(new Date()))
+  const rangeRef = useRef({ from, to })
+  const requestRef = useRef(0)
+  const inflightRef = useRef<AbortController | null>(null)
 
-  const load = async (start = from, end = to) => {
-    setError("")
-    const response = await fetch(`/api/links/${encodeURIComponent(code)}/stats?from=${start}&to=${end}`)
-    const data = await response.json()
-    if (!response.ok) {
-      setError(data.error || "Unable to load stats")
-      return
+  const load = async (start: string, end: string, signal?: AbortSignal) => {
+    inflightRef.current?.abort()
+    const controller = new AbortController()
+    inflightRef.current = controller
+    const onAbort = () => controller.abort()
+    signal?.addEventListener("abort", onAbort)
+    const id = ++requestRef.current
+    try {
+      const response = await fetch(`/api/links/${encodeURIComponent(code)}/stats?from=${start}&to=${end}`, { signal: controller.signal, cache: "no-store" })
+      const data = await response.json().catch(() => ({}))
+      if (id !== requestRef.current) return
+      if (!response.ok) throw new Error(data.error || "Unable to load stats")
+      setError("")
+      setStats(data)
+    } catch (error) {
+      if (id !== requestRef.current || (error instanceof Error && error.name === "AbortError")) return
+      setError(error instanceof Error ? error.message : "Unable to load stats")
+      throw error
+    } finally {
+      signal?.removeEventListener("abort", onAbort)
+      if (inflightRef.current === controller) inflightRef.current = null
     }
-    setStats(data)
   }
 
+  const pausePoll = useDelayedPoll(async (signal) => {
+    const range = rangeRef.current
+    await load(range.from, range.to, signal)
+  }, STATS_POLL_MS)
+
   useEffect(() => {
-    load()
+    rangeRef.current = { from, to }
+    load(from, to).catch(() => {})
+    return () => inflightRef.current?.abort()
   }, [code])
 
   const applyRange = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    load()
+    rangeRef.current = { from, to }
+    pausePoll()
+    load(from, to).catch(() => {})
   }
 
   const breakdown = stats ? listFor(tab, stats) : []

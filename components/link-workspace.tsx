@@ -3,12 +3,17 @@
 import Link from "next/link"
 import { LogOut, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react"
 import { FormEvent, useEffect, useRef, useState } from "react"
+import { useDelayedPoll } from "@/lib/use-delayed-poll"
 
 type Mode = "whatsapp" | "redirect"
 type LinkRecord = { code: string; target_url: string; visits: number; unique_visits?: number; created_at?: string }
 type Totals = { links: number; clicks: number; linksToday: number; clicksToday?: number }
 type LinkPage = { links: LinkRecord[]; hasMore: boolean; totals?: Totals }
 type SessionUser = { fullName?: string; email?: string; role?: string }
+
+const PAGE_SIZE = 12
+const POLL_LIMIT = 60
+const LIST_POLL_MS = 20_000
 
 export function LinkWorkspace() {
   const [mode, setMode] = useState<Mode>("redirect")
@@ -37,14 +42,32 @@ export function LinkWorkspace() {
   const loadingRef = useRef(false)
   const pageRef = useRef(0)
   const hasMoreRef = useRef(true)
+  const searchRef = useRef("")
+  const requestRef = useRef(0)
+  searchRef.current = searchTerm
+
+  const pausePoll = useDelayedPoll(async (signal) => {
+    if (pageRef.current < 1) return
+    const limit = Math.min(POLL_LIMIT, Math.max(PAGE_SIZE, pageRef.current * PAGE_SIZE))
+    await loadLinks(1, searchRef.current, { signal, silent: true, limit })
+  }, LIST_POLL_MS)
 
   useEffect(() => {
+    const controller = new AbortController()
     setOrigin(window.location.origin)
-    loadLinks(1)
-    fetch("/api/auth/me")
+    loadLinks(1, "", { signal: controller.signal })
+    const profile = new AbortController()
+    fetch("/api/auth/me", { signal: profile.signal })
       .then((response) => response.json())
       .then((data) => setUser(data.user || null))
-      .catch(() => setUser(null))
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") return
+        setUser(null)
+      })
+    return () => {
+      controller.abort()
+      profile.abort()
+    }
   }, [])
 
   useEffect(() => {
@@ -62,6 +85,7 @@ export function LinkWorkspace() {
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && pageRef.current > 0 && hasMoreRef.current && !loadingRef.current) {
+        pausePoll()
         loadLinks(pageRef.current + 1)
       }
     }, { rootMargin: "240px" })
@@ -69,23 +93,43 @@ export function LinkWorkspace() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore, page])
 
-  const loadLinks = async (nextPage: number, term = searchTerm) => {
-    if (loadingRef.current) return
+  const loadLinks = async (nextPage: number, term = searchTerm, options?: { signal?: AbortSignal; silent?: boolean; limit?: number }) => {
+    if (options?.signal?.aborted) return
+    const id = ++requestRef.current
     loadingRef.current = true
-    setLoadingMore(true)
+    if (!options?.silent) setLoadingMore(true)
+    const limit = options?.limit ?? PAGE_SIZE
     try {
-      const response = await fetch(`/api/links?page=${nextPage}&limit=12&q=${encodeURIComponent(term)}`)
-      if (!response.ok) return
+      const response = await fetch(`/api/links?page=${nextPage}&limit=${limit}&q=${encodeURIComponent(term)}`, { signal: options?.signal, cache: "no-store" })
+      if (id !== requestRef.current) return
+      if (!response.ok) {
+        if (options?.silent) throw new Error("Unable to refresh links")
+        return
+      }
       const data: LinkPage = await response.json()
-      setLinks((current) => nextPage === 1 ? data.links : [...current, ...data.links])
+      if (id !== requestRef.current) return
+      setLinks((current) => {
+        if (nextPage !== 1) return [...current, ...data.links]
+        if (!options?.silent) return data.links
+        const seen = new Set(data.links.map((link) => link.code))
+        const tail = current.slice(data.links.length).filter((link) => !seen.has(link.code))
+        return [...data.links, ...tail]
+      })
       if (data.totals) setTotals(data.totals)
-      setPage(nextPage)
+      if (options?.silent && nextPage === 1) return
+      const resolvedPage = nextPage === 1 ? Math.max(1, Math.ceil(data.links.length / PAGE_SIZE)) : nextPage
+      setPage(resolvedPage)
       setHasMore(data.hasMore)
-      pageRef.current = nextPage
+      pageRef.current = resolvedPage
       hasMoreRef.current = data.hasMore
+    } catch (error) {
+      if (id !== requestRef.current || (error instanceof Error && error.name === "AbortError")) return
+      if (options?.silent) throw error
     } finally {
-      loadingRef.current = false
-      setLoadingMore(false)
+      if (id === requestRef.current) {
+        loadingRef.current = false
+        if (!options?.silent) setLoadingMore(false)
+      }
     }
   }
 
@@ -93,7 +137,9 @@ export function LinkWorkspace() {
     event.preventDefault()
     const nextTerm = searchInput.trim()
     setSearchTerm(nextTerm)
+    searchRef.current = nextTerm
     setHasMore(true)
+    pausePoll()
     loadLinks(1, nextTerm)
   }
 
@@ -119,6 +165,7 @@ export function LinkWorkspace() {
       setAlias("")
       setPhone("")
       setMessage("")
+      pausePoll()
       await loadLinks(1)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to create link")
@@ -279,7 +326,7 @@ export function LinkWorkspace() {
               <h2 className="text-lg font-bold text-[#1e2a3a]">Recent links</h2>
             </div>
             <div className="mb-3 flex items-center justify-between rounded-md border border-[#e6e9ef] bg-white px-3 py-3 shadow-sm">
-              <button type="button" onClick={() => loadLinks(1)} className="text-sm font-semibold text-[#3b7ddd]">Refresh</button>
+              <button type="button" onClick={() => { pausePoll(); loadLinks(1) }} className="text-sm font-semibold text-[#3b7ddd]">Refresh</button>
               <button type="button" aria-label="Search links" onClick={() => setSearchOpen((open) => !open)} className="grid h-9 w-9 place-items-center rounded-md border border-[#d9dee7]">
                 {searchOpen ? <X size={16} /> : <Search size={16} />}
               </button>
@@ -307,7 +354,7 @@ export function LinkWorkspace() {
             </div>
             <div ref={sentinel} className="flex flex-col items-center gap-3 py-6 text-sm text-[#8a94a6]">
               {loadingMore ? "Loading more links..." : hasMore ? (
-                <button type="button" onClick={() => loadLinks(pageRef.current + 1)} className="rounded-md border border-[#d9dee7] bg-white px-4 py-2 font-semibold text-[#1e2a3a]">Load more</button>
+                <button type="button" onClick={() => { pausePoll(); loadLinks(pageRef.current + 1) }} className="rounded-md border border-[#d9dee7] bg-white px-4 py-2 font-semibold text-[#1e2a3a]">Load more</button>
               ) : "All matching links loaded"}
             </div>
           </section>

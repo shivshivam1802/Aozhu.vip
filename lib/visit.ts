@@ -44,6 +44,84 @@ export function visitFromHeaders(headers: HeaderSource): VisitInput {
   }
 }
 
+type Place = { country: string; city: string }
+
+const placeCache = new Map<string, { place: Place | null; until: number }>()
+
+export async function withLocation(visit: VisitInput, headers?: HeaderSource): Promise<VisitInput> {
+  let next = visit
+  if (!next.country || !next.city) {
+    const target = lookupTarget(next.ip)
+    if (target !== null) {
+      const place = await lookupPlace(target)
+      if (place) {
+        next = {
+          ...next,
+          country: next.country || place.country,
+          city: next.city || place.city,
+        }
+      }
+    }
+  }
+  if (!next.country && headers) {
+    const tag = (headers.get("accept-language") || "").split(",")[0]?.trim() || ""
+    const hinted = countryName(tag.split("-")[1] || "")
+    if (hinted) next = { ...next, country: hinted }
+  }
+  return next
+}
+
+function lookupTarget(ip: string) {
+  if (isPublicIp(ip)) return ip
+  if (ip === "::1" || ip === "127.0.0.1" || ip === "::ffff:127.0.0.1") return ""
+  return null
+}
+
+function isPublicIp(ip: string) {
+  const value = ip.trim().toLowerCase().replace(/^::ffff:/, "")
+  if (!value || value === "::1" || value === "127.0.0.1") return false
+  if (value.startsWith("10.") || value.startsWith("192.168.") || value.startsWith("169.254.")) return false
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(value)) return false
+  if (value.startsWith("fc") || value.startsWith("fd") || value.startsWith("fe80")) return false
+  return true
+}
+
+async function lookupPlace(ip: string) {
+  const key = ip || "self"
+  const cached = placeCache.get(key)
+  if (cached && cached.until > Date.now()) return cached.place
+  const place = await queryPlace(ip)
+  placeCache.set(key, { place, until: Date.now() + (place ? 6 * 60 * 60 * 1000 : 60 * 1000) })
+  return place
+}
+
+async function queryPlace(ip: string) {
+  const encoded = encodeURIComponent(ip)
+  const endpoints = ip
+    ? [`https://ipwho.is/${encoded}`, `https://get.geojs.io/v1/ip/geo/${encoded}.json`]
+    : ["https://ipwho.is/", "https://get.geojs.io/v1/ip/geo.json"]
+  for (const url of endpoints) {
+    const place = await fetchPlace(url)
+    if (place) return place
+  }
+  return null
+}
+
+async function fetchPlace(url: string) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(1500), headers: { accept: "application/json" } })
+    if (!response.ok) return null
+    const data = await response.json() as { success?: boolean; country?: string; country_code?: string; region?: string; city?: string }
+    if (data.success === false) return null
+    const country = (data.country || countryName(data.country_code || "")).trim().slice(0, 80)
+    const city = placeLabel(data.city || "", data.region || "")
+    if (!country && !city) return null
+    return { country, city }
+  } catch {
+    return null
+  }
+}
+
 function placeLabel(city: string, region: string) {
   return [city.trim(), region.trim()].filter(Boolean).join(", ").slice(0, 80)
 }

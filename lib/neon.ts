@@ -125,6 +125,15 @@ export async function recordVisit(code: string, visit?: VisitInput) {
       ${visitIndex}
     )
   `
+  if (details.ip && (details.country || details.city)) {
+    await sql`
+      UPDATE link_visits
+      SET
+        country = CASE WHEN country = '' THEN ${details.country} ELSE country END,
+        city = CASE WHEN city = '' THEN ${details.city} ELSE city END
+      WHERE ip = ${details.ip} AND (country = '' OR city = '')
+    `
+  }
   const rows = (await sql`
     UPDATE links
     SET visits = visits + 1

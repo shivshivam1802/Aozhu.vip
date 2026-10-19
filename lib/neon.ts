@@ -1,4 +1,4 @@
-﻿import crypto from "crypto"
+import crypto from "crypto"
 import { neon } from "@neondatabase/serverless"
 import type { VisitInput } from "@/lib/visit"
 
@@ -144,3 +144,86 @@ export async function incrementLinkVisits(code: string) {
   `) as Array<{ code: string; target_url: string; visits: number }>
 
   return rows[0]
+}
+
+export type VisitRow = {
+  country: string
+  city: string
+  device: string
+  browser: string
+  language: string
+  referrer: string
+  ip: string
+  visit_index: number
+  created_at: string
+}
+
+export async function getLinkStats(code: string, from: Date, to: Date) {
+  await ensureLinksTable()
+  const links = (await sql`
+    SELECT code, target_url, visits, created_at
+    FROM links
+    WHERE code = ${code}
+  `) as Array<{ code: string; target_url: string; visits: number; created_at: string }>
+  const link = links[0]
+  if (!link) return null
+
+  const summary = (await sql`
+    SELECT COUNT(*)::int AS clicks, COUNT(DISTINCT visitor_key)::int AS unique_clicks
+    FROM link_visits
+    WHERE code = ${code} AND created_at >= ${from.toISOString()} AND created_at < ${to.toISOString()}
+  `) as Array<{ clicks: number; unique_clicks: number }>
+  const days = (await sql`
+    SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*)::int AS clicks
+    FROM link_visits
+    WHERE code = ${code} AND created_at >= ${from.toISOString()} AND created_at < ${to.toISOString()}
+    GROUP BY 1
+    ORDER BY 1
+  `) as Array<{ day: string; clicks: number }>
+  const activity = (await sql`
+    SELECT country, city, device, browser, language, referrer, ip, visit_index, created_at
+    FROM link_visits
+    WHERE code = ${code} AND created_at >= ${from.toISOString()} AND created_at < ${to.toISOString()}
+    ORDER BY created_at DESC
+    LIMIT 50
+  `) as VisitRow[]
+
+  const [countries, devices, browsers, languages, referrers] = await Promise.all([
+    grouped(code, from, to, "country"),
+    grouped(code, from, to, "device"),
+    grouped(code, from, to, "browser"),
+    grouped(code, from, to, "language"),
+    grouped(code, from, to, "referrer"),
+  ])
+
+  return {
+    link,
+    clicks: Number(summary[0]?.clicks || 0),
+    uniqueClicks: Number(summary[0]?.unique_clicks || 0),
+    topCountry: countries.find((row) => row.label && row.label !== "Unknown")?.label || "",
+    topReferrer: referrers.find((row) => row.label && row.label !== "Unknown")?.label || "",
+    days,
+    activity,
+    countries,
+    devices,
+    browsers,
+    languages,
+    referrers,
+  }
+}
+
+async function grouped(code: string, from: Date, to: Date, column: "country" | "device" | "browser" | "language" | "referrer") {
+  const range = sql`code = ${code} AND created_at >= ${from.toISOString()} AND created_at < ${to.toISOString()}`
+  const rows = column === "country"
+    ? await sql`SELECT country AS label, COUNT(*)::int AS count FROM link_visits WHERE ${range} GROUP BY 1 ORDER BY count DESC LIMIT 12`
+    : column === "device"
+      ? await sql`SELECT device AS label, COUNT(*)::int AS count FROM link_visits WHERE ${range} GROUP BY 1 ORDER BY count DESC LIMIT 12`
+      : column === "browser"
+        ? await sql`SELECT browser AS label, COUNT(*)::int AS count FROM link_visits WHERE ${range} GROUP BY 1 ORDER BY count DESC LIMIT 12`
+        : column === "language"
+          ? await sql`SELECT language AS label, COUNT(*)::int AS count FROM link_visits WHERE ${range} GROUP BY 1 ORDER BY count DESC LIMIT 12`
+          : await sql`SELECT referrer AS label, COUNT(*)::int AS count FROM link_visits WHERE ${range} GROUP BY 1 ORDER BY count DESC LIMIT 12`
+
+  return (rows as Array<{ label: string; count: number }>)
+    .map((row) => ({ label: row.label || "Unknown", count: Number(row.count || 0) }))
+}

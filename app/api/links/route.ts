@@ -12,18 +12,45 @@ export async function GET(request: Request) {
 
   await ensureLinksTable()
   const rows = await sql`
-    SELECT code, target_url, visits, created_at
+    SELECT code, target_url, visits, created_at,
+      (SELECT COUNT(DISTINCT visitor_key)::int FROM link_visits WHERE link_visits.code = links.code) AS unique_visits
     FROM links
     WHERE (${search === ""} OR code ILIKE ${searchPattern} OR target_url ILIKE ${searchPattern})
     ORDER BY created_at DESC
     LIMIT ${limit + 1} OFFSET ${offset}
   `
+  const totals = page === 1
+    ? await sql`
+      SELECT
+        COUNT(*)::int AS links,
+        COALESCE(SUM(visits), 0)::int AS clicks,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('day', NOW()))::int AS links_today,
+        (
+          SELECT COUNT(*)::int
+          FROM link_visits
+          JOIN links visited ON visited.code = link_visits.code
+          WHERE link_visits.created_at >= date_trunc('day', NOW())
+            AND (${search === ""} OR visited.code ILIKE ${searchPattern} OR visited.target_url ILIKE ${searchPattern})
+        ) AS clicks_today
+      FROM links
+      WHERE (${search === ""} OR code ILIKE ${searchPattern} OR target_url ILIKE ${searchPattern})
+    `
+    : []
+  const summary = totals[0] as { links?: number; clicks?: number; links_today?: number; clicks_today?: number } | undefined
 
   return NextResponse.json({
     links: rows.slice(0, limit),
     hasMore: rows.length > limit,
     page,
     limit,
+    totals: summary
+      ? {
+          links: Number(summary.links || 0),
+          clicks: Number(summary.clicks || 0),
+          linksToday: Number(summary.links_today || 0),
+          clicksToday: Number(summary.clicks_today || 0),
+        }
+      : undefined,
   })
 }
 
@@ -41,7 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid HTTP or HTTPS URL is required" }, { status: 400 })
     }
 
-    const reservedCodes = new Set(["about", "admin", "api", "contact", "favicon", "generate", "icon", "link", "logo", "manifest", "r", "robots", "services", "sitemap"])
+    const reservedCodes = new Set(["about", "admin", "api", "contact", "favicon", "generate", "icon", "link", "logo", "manifest", "r", "robots", "services", "sitemap", "stats"])
     if (alias && (!/^[a-zA-Z0-9_-]+$/.test(alias) || reservedCodes.has(alias))) {
       return NextResponse.json({ error: "Invalid alias" }, { status: 400 })
     }

@@ -29,25 +29,6 @@ export function buildLinkCode(targetUrl: string, alias?: string) {
   return `link_${crypto.createHash("sha256").update(normalized).digest("base64url").replace(/=+$/g, "").slice(0, 16)}`
 }
 
-export function buildForwarderTarget(requestUrl: string) {
-  const request = new URL(requestUrl)
-  const targetParam = request.searchParams.get("url")
-  if (!targetParam) return ""
-
-  let destination: URL
-  try {
-    destination = new URL(normalizeTargetUrl(targetParam))
-  } catch {
-    return ""
-  }
-
-  for (const [key, value] of request.searchParams.entries()) {
-    if (key !== "url") destination.searchParams.append(key, value)
-  }
-
-  return normalizeTargetUrl(destination.toString())
-}
-
 export async function ensureLinksTable() {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL_POOLED or DATABASE_URL is not configured")

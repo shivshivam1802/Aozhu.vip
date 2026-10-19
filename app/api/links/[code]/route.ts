@@ -38,3 +38,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   if (!rows[0]) return NextResponse.json({ error: "Link not found" }, { status: 404 })
   return NextResponse.json(rows[0])
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params
+  await ensureLinksTable()
+  const rows = await sql`
+    DELETE FROM links
+    WHERE code = ${code}
+    RETURNING code
+  `
+
+  if (!rows[0]) return NextResponse.json({ error: "Link not found" }, { status: 404 })
+  return NextResponse.json({ success: true, code: rows[0].code })
+}

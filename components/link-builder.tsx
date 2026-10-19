@@ -40,7 +40,6 @@ export function LinkBuilder() {
   }
 
   const trackedUrl = result ? `${origin}/${encodeURIComponent(result.code)}` : ""
-  const directUrl = result ? `${origin}/link?url=${encodeURIComponent(targetUrl)}` : ""
   const copy = (value: string) => navigator.clipboard.writeText(value)
 
   return (
@@ -69,7 +68,6 @@ export function LinkBuilder() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">What gets tracked</p>
             <dl className="mt-6 space-y-6 text-sm">
               <Info title="Alias links" text="/your-alias links created here." />
-              <Info title="Direct forwarders" text="/link?url=... requests are counted too." />
               <Info title="Visit totals" text="Every redirect increments its Neon row." />
             </dl>
           </aside>
@@ -84,9 +82,8 @@ export function LinkBuilder() {
               </div>
               <button onClick={refresh} className="inline-flex items-center gap-2 text-sm font-semibold hover:text-[#0E7A62]"><RefreshCw size={15} /> Refresh count</button>
             </div>
-            <div className="mt-7 grid gap-4 md:grid-cols-3">
+            <div className="mt-7 grid gap-4 md:grid-cols-2">
               <Result label="Tracked URL" value={trackedUrl} onCopy={() => copy(trackedUrl)} />
-              <Result label="Direct forwarder" value={directUrl} onCopy={() => copy(directUrl)} />
               <div className="rounded-2xl bg-[#F3F6F4] p-5">
                 <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Total visits</p>
                 <p className="mt-4 font-display text-5xl font-semibold tracking-tight">{result.visits.toLocaleString()}</p>

@@ -4,7 +4,7 @@ import { ArrowUpRight, Copy, Link2, RefreshCw, Search, ScrollText } from "lucide
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react"
 import { Logo } from "@/components/logo"
 
-type Mode = "forwarder" | "whatsapp" | "redirect"
+type Mode = "whatsapp" | "redirect"
 type LinkRecord = { code: string; target_url: string; visits: number; created_at?: string }
 type LinkPage = { links: LinkRecord[]; hasMore: boolean }
 
@@ -120,8 +120,16 @@ export function LinkWorkspace() {
     setResult((current) => current && current.code === updated.code ? { ...current, ...updated } : current)
   }
 
+  const deleteLink = async (code: string) => {
+    if (!window.confirm("Delete this code? It will stop redirecting.")) return
+    const response = await fetch(`/api/links/${encodeURIComponent(code)}`, { method: "DELETE" })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || "Unable to delete link")
+    setLinks((current) => current.filter((link) => link.code !== code))
+    setResult((current) => current && current.code === code ? null : current)
+  }
+
   const trackedUrl = result ? `${origin}/${encodeURIComponent(result.code)}` : ""
-  const directUrl = result ? `${origin}/link?url=${encodeURIComponent(result.target_url)}` : ""
   const copy = (value: string) => navigator.clipboard.writeText(value)
 
   return (
@@ -141,13 +149,12 @@ export function LinkWorkspace() {
               Every useful link, in one ledger.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-[#10221C]/60">
-              Forward a URL, start a WhatsApp chat, or create a code-based redirect. Each generated link is stored with its visit total.
+              Create a code-based redirect or a WhatsApp chat link. Each generated code is stored with its visit total.
             </p>
 
             <form onSubmit={create} className="mt-8 rounded-[1.75rem] border border-[#10221C]/10 bg-white p-5 shadow-[0_24px_60px_-36px_rgba(16,34,28,0.45)] sm:p-7">
-              <div className="mb-7 grid grid-cols-3 gap-2 rounded-2xl bg-[#F3F6F4] p-1.5">
+              <div className="mb-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#F3F6F4] p-1.5">
                 <ModeButton active={mode === "redirect"} onClick={() => setMode("redirect")} icon={<Link2 size={15} />} label="Code redirect" />
-                <ModeButton active={mode === "forwarder"} onClick={() => setMode("forwarder")} icon={<ArrowUpRight size={15} />} label="Forwarder" />
                 <ModeButton active={mode === "whatsapp"} onClick={() => setMode("whatsapp")} icon={<WhatsAppIcon />} label="WhatsApp" />
               </div>
               {mode === "whatsapp" ? (
@@ -191,7 +198,6 @@ export function LinkWorkspace() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">Supported links</p>
             <dl className="mt-6 space-y-6 text-sm">
               <Info title="Code redirect" text="/code stores a destination and increments visits." />
-              <Info title="Forwarder" text="/link?url=... sends visitors to any HTTP or HTTPS destination." />
               <Info title="WhatsApp" text="Tracked /code links open wa.me chats with an optional message." />
             </dl>
           </aside>
@@ -208,9 +214,8 @@ export function LinkWorkspace() {
                 <RefreshCw size={15} /> Refresh count
               </button>
             </div>
-            <div className="mt-7 grid gap-4 md:grid-cols-3">
+            <div className="mt-7 grid gap-4 md:grid-cols-2">
               <Result label="Tracked URL" value={trackedUrl} onCopy={() => copy(trackedUrl)} />
-              <Result label="Direct forwarder" value={directUrl} onCopy={() => copy(directUrl)} />
               <div className="rounded-2xl bg-[#F3F6F4] p-5">
                 <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Destination</p>
                 <DestinationEditor code={result.code} targetUrl={result.target_url} onSave={updateDestination} />
@@ -236,7 +241,7 @@ export function LinkWorkspace() {
           </form>
           {searchTerm && <p className="mt-3 text-xs text-[#10221C]/50">Showing results for “{searchTerm}”.</p>}
           <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#10221C]/10 bg-white">
-            {links.map((link) => <LedgerRow key={link.code} link={link} origin={origin} onSave={updateDestination} />)}
+            {links.map((link) => <LedgerRow key={link.code} link={link} origin={origin} onSave={updateDestination} onDelete={deleteLink} />)}
             {!links.length && !loadingMore && <p className="px-5 py-8 text-sm text-[#10221C]/55">No tracked links match this search.</p>}
           </div>
           <div ref={sentinel} className="flex flex-col items-center gap-3 py-8 text-sm text-[#10221C]/50">
@@ -290,25 +295,39 @@ function Result({ label, value, onCopy }: { label: string; value: string; onCopy
   )
 }
 
-function LedgerRow({ link, origin, onSave }: { link: LinkRecord; origin: string; onSave: (code: string, targetUrl: string) => Promise<void> }) {
+function LedgerRow({ link, origin, onSave, onDelete }: { link: LinkRecord; origin: string; onSave: (code: string, targetUrl: string) => Promise<void>; onDelete: (code: string) => Promise<void> }) {
   const isWhatsApp = link.target_url.includes("wa.me/") || link.target_url.includes("api.whatsapp.com/")
-  const isExternalUrl = /^https?:\/\//i.test(link.target_url)
-  const previewUrl = isWhatsApp || isExternalUrl ? link.target_url : `${origin}/${link.code}`
-  const type = isWhatsApp ? "WhatsApp" : isExternalUrl ? "Forwarder" : "Code redirect"
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  const remove = async () => {
+    setDeleting(true)
+    setDeleteError("")
+    try {
+      await onDelete(link.code)
+    } catch (caught) {
+      setDeleteError(caught instanceof Error ? caught.message : "Unable to delete link")
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 border-b border-[#10221C]/8 px-5 py-5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0E7A62]">
-          <ScrollText size={14} /> {type}
+          <ScrollText size={14} /> {isWhatsApp ? "WhatsApp" : "Code redirect"}
         </div>
-        <p className="mt-2 truncate text-sm font-semibold">{previewUrl}</p>
+        <p className="mt-2 truncate text-sm font-semibold">{link.target_url}</p>
         <p className="mt-1 truncate text-sm text-[#10221C]/50">{origin}/{link.code}</p>
         <DestinationEditor code={link.code} targetUrl={link.target_url} onSave={onSave} />
+        {deleteError && <p className="mt-2 text-sm text-[#9a3412]">{deleteError}</p>}
       </div>
       <div className="sm:text-right">
         <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Visits</p>
         <p className="mt-1 font-display text-3xl font-semibold">{link.visits.toLocaleString()}</p>
+        <button type="button" onClick={remove} disabled={deleting} className="mt-3 text-sm font-semibold text-[#9a3412] hover:underline disabled:opacity-50">
+          {deleting ? "Deleting..." : "Delete"}
+        </button>
       </div>
     </div>
   )

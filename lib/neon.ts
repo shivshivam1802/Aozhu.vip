@@ -1,5 +1,6 @@
-import crypto from "crypto"
+﻿import crypto from "crypto"
 import { neon } from "@neondatabase/serverless"
+import type { VisitInput } from "@/lib/visit"
 
 const databaseUrl = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL
 
@@ -42,6 +43,24 @@ export async function ensureLinksTable() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `
+  await sql`
+    CREATE TABLE IF NOT EXISTS link_visits (
+      id BIGSERIAL PRIMARY KEY,
+      code TEXT NOT NULL,
+      visitor_key TEXT NOT NULL,
+      ip TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      city TEXT NOT NULL DEFAULT '',
+      device TEXT NOT NULL DEFAULT '',
+      browser TEXT NOT NULL DEFAULT '',
+      language TEXT NOT NULL DEFAULT '',
+      referrer TEXT NOT NULL DEFAULT '',
+      visit_index INTEGER NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS link_visits_code_created_idx ON link_visits (code, created_at DESC)`
+  await sql`CREATE INDEX IF NOT EXISTS link_visits_code_visitor_idx ON link_visits (code, visitor_key)`
 }
 
 export async function findOrCreateLink(targetUrl: string, alias?: string) {
@@ -59,23 +78,61 @@ export async function findOrCreateLink(targetUrl: string, alias?: string) {
   return rows[0]
 }
 
-export async function visitTrackedLink(code: string) {
+export async function visitTrackedLink(code: string, visit?: VisitInput) {
   const normalized = decodeURIComponent(code).trim()
   if (!normalized) return ""
 
   await ensureLinksTable()
   const candidates = [...new Set([normalized, normalized.toLowerCase()])]
   for (const candidate of candidates) {
-    const rows = (await sql`
-      UPDATE links
-      SET visits = visits + 1
-      WHERE code = ${candidate}
-      RETURNING target_url
-    `) as Array<{ target_url: string }>
-    if (rows[0]?.target_url) return rows[0].target_url
+    const rows = (await sql`SELECT code FROM links WHERE code = ${candidate}`) as Array<{ code: string }>
+    if (rows[0]) return recordVisit(rows[0].code, visit)
   }
 
   return ""
+}
+
+export async function recordVisit(code: string, visit?: VisitInput) {
+  await ensureLinksTable()
+  const details = visit || {
+    visitorKey: crypto.randomBytes(16).toString("base64url"),
+    ip: "",
+    country: "",
+    city: "",
+    device: "Unknown",
+    browser: "Unknown",
+    language: "",
+    referrer: "Direct, email or others",
+  }
+  const prior = (await sql`
+    SELECT COUNT(*)::int AS n
+    FROM link_visits
+    WHERE code = ${code} AND visitor_key = ${details.visitorKey}
+  `) as Array<{ n: number }>
+  const visitIndex = Number(prior[0]?.n || 0) + 1
+  await sql`
+    INSERT INTO link_visits (code, visitor_key, ip, country, city, device, browser, language, referrer, visit_index)
+    VALUES (
+      ${code},
+      ${details.visitorKey},
+      ${details.ip},
+      ${details.country},
+      ${details.city},
+      ${details.device},
+      ${details.browser},
+      ${details.language},
+      ${details.referrer},
+      ${visitIndex}
+    )
+  `
+  const rows = (await sql`
+    UPDATE links
+    SET visits = visits + 1
+    WHERE code = ${code}
+    RETURNING target_url
+  `) as Array<{ target_url: string }>
+
+  return rows[0]?.target_url || ""
 }
 
 export async function incrementLinkVisits(code: string) {
@@ -87,4 +144,3 @@ export async function incrementLinkVisits(code: string) {
   `) as Array<{ code: string; target_url: string; visits: number }>
 
   return rows[0]
-}

@@ -42,6 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
 export async function DELETE(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
   await ensureLinksTable()
+  await sql`DELETE FROM link_visits WHERE code = ${code}`
   const rows = await sql`
     DELETE FROM links
     WHERE code = ${code}

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { visitTrackedLink } from "@/lib/neon"
+import { visitFromHeaders } from "@/lib/visit"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
   try {
-    const destination = await visitTrackedLink(code)
+    const destination = await visitTrackedLink(code, visitFromHeaders(_request.headers))
     if (destination) return NextResponse.redirect(destination)
   } catch (error) {
     console.error("Failed to forward tracked link:", error)

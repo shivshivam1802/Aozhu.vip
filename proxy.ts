@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import crypto from "crypto"
+import { clientIpFromHeaders, visitorKey } from "@/lib/visit"
 
 const JWT_SECRET = process.env.JWT_SECRET || "gaur-links-secret-super-key-2026-campaign"
 
@@ -69,5 +70,23 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next()
+  return continueWithVisitor(request)
+}
+
+function continueWithVisitor(request: NextRequest) {
+  const existing = request.cookies.get("aozhu_vid")?.value || ""
+  const key = visitorKey(clientIpFromHeaders(request.headers), request.headers.get("user-agent") || "", existing)
+  const headers = new Headers(request.headers)
+  headers.set("x-aozhu-vid", key)
+  const response = NextResponse.next({ request: { headers } })
+  if (!existing) {
+    response.cookies.set("aozhu_vid", key, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      secure: process.env.NODE_ENV === "production",
+    })
+  }
+  return response
 }

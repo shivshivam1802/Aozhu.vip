@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { findOrCreateLink, incrementLinkVisits, visitTrackedLink } from "@/lib/neon";
+import { findOrCreateLink, recordVisit, visitTrackedLink } from "@/lib/neon";
+import { visitFromHeaders } from "@/lib/visit";
 
 export default async function Page({
   params,
@@ -9,7 +11,9 @@ export default async function Page({
   searchParams?: Promise<{ text?: string }>;
 }) {
   const { phone } = await params;
-  const trackedDestination = await visitTrackedLink(phone);
+  const headerList = await headers();
+  const visit = visitFromHeaders(headerList);
+  const trackedDestination = await visitTrackedLink(phone, visit);
   if (trackedDestination) redirect(trackedDestination);
 
   const sp = searchParams ? await searchParams : {};
@@ -22,6 +26,6 @@ export default async function Page({
   }
 
   const link = await findOrCreateLink(url);
-  await incrementLinkVisits(link.code);
+  await recordVisit(link.code, visit);
   redirect(url);
 }

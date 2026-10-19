@@ -32,8 +32,6 @@ export function proxy(request: NextRequest) {
 
   const token = request.cookies.get("gaur_session")?.value
 
-  const protectedPaths = ["/about", "/services", "/contact"]
-
   if (pathname === "/generate" || pathname.startsWith("/api/links")) {
     const payload = token ? verifyJwtEdge(token) : null
     const isVerified = payload && (payload.role === "admin" || payload.paymentStatus === "verified")
@@ -42,30 +40,6 @@ export function proxy(request: NextRequest) {
       if (pathname.startsWith("/api/links")) {
         return NextResponse.json({ error: "Authentication required" }, { status: 401 })
       }
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-  }
-
-  if (protectedPaths.some((path) => pathname.startsWith(path))) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-    const payload = verifyJwtEdge(token)
-    if (!payload) {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-
-    if (payload.role !== "admin" && payload.paymentStatus !== "verified") {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-  }
-
-  if (pathname.startsWith("/admin/payments")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-    const payload = verifyJwtEdge(token)
-    if (!payload || payload.role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url))
     }
   }

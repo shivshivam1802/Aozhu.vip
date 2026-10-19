@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { findOrCreateLink, recordVisit, visitTrackedLink } from "@/lib/neon";
 import { visitFromHeaders } from "@/lib/visit";
 
@@ -11,6 +11,7 @@ export default async function Page({
   searchParams?: Promise<{ text?: string }>;
 }) {
   const { phone } = await params;
+  if (reserved.has(phone.toLowerCase())) notFound();
   const headerList = await headers();
   const visit = visitFromHeaders(headerList);
   const trackedDestination = await visitTrackedLink(phone, visit);
@@ -29,3 +30,5 @@ export default async function Page({
   await recordVisit(link.code, visit);
   redirect(url);
 }
+
+const reserved = new Set(["about", "admin", "api", "contact", "favicon", "generate", "icon", "link", "logo", "manifest", "r", "robots", "services", "sitemap", "stats"]);

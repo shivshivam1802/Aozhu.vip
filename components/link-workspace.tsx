@@ -1,12 +1,14 @@
 "use client"
 
-import { ArrowUpRight, Copy, Link2, RefreshCw, Search, ScrollText } from "lucide-react"
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react"
-import { Logo } from "@/components/logo"
+import Link from "next/link"
+import { LogOut, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 
 type Mode = "whatsapp" | "redirect"
-type LinkRecord = { code: string; target_url: string; visits: number; created_at?: string }
-type LinkPage = { links: LinkRecord[]; hasMore: boolean }
+type LinkRecord = { code: string; target_url: string; visits: number; unique_visits?: number; created_at?: string }
+type Totals = { links: number; clicks: number; linksToday: number; clicksToday?: number }
+type LinkPage = { links: LinkRecord[]; hasMore: boolean; totals?: Totals }
+type SessionUser = { fullName?: string; email?: string; role?: string }
 
 export function LinkWorkspace() {
   const [mode, setMode] = useState<Mode>("redirect")
@@ -14,16 +16,23 @@ export function LinkWorkspace() {
   const [alias, setAlias] = useState("")
   const [phone, setPhone] = useState("")
   const [message, setMessage] = useState("")
+  const [advanced, setAdvanced] = useState(false)
   const [result, setResult] = useState<LinkRecord | null>(null)
   const [links, setLinks] = useState<LinkRecord[]>([])
+  const [totals, setTotals] = useState<Totals>({ links: 0, clicks: 0, linksToday: 0, clicksToday: 0 })
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [origin, setOrigin] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [user, setUser] = useState<SessionUser | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [copied, setCopied] = useState("")
   const sentinel = useRef<HTMLDivElement>(null)
   const loadingRef = useRef(false)
   const pageRef = useRef(0)
@@ -32,7 +41,23 @@ export function LinkWorkspace() {
   useEffect(() => {
     setOrigin(window.location.origin)
     loadLinks(1)
+    fetch("/api/auth/me")
+      .then((response) => response.json())
+      .then((data) => setUser(data.user || null))
+      .catch(() => setUser(null))
   }, [])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        document.getElementById("shorten")?.scrollIntoView({ behavior: "smooth", block: "center" })
+        document.getElementById(mode === "whatsapp" ? "phone" : "url")?.focus()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [mode])
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -53,6 +78,7 @@ export function LinkWorkspace() {
       if (!response.ok) return
       const data: LinkPage = await response.json()
       setLinks((current) => nextPage === 1 ? data.links : [...current, ...data.links])
+      if (data.totals) setTotals(data.totals)
       setPage(nextPage)
       setHasMore(data.hasMore)
       pageRef.current = nextPage
@@ -89,21 +115,15 @@ export function LinkWorkspace() {
       const statsResponse = await fetch(`/api/links/${encodeURIComponent(data.code)}`)
       const created: LinkRecord = statsResponse.ok ? await statsResponse.json() : { code: data.code, target_url: destination, visits: 0 }
       setResult(created)
+      setTargetUrl("")
+      setAlias("")
+      setPhone("")
+      setMessage("")
       await loadLinks(1)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to create link")
     } finally {
       setBusy(false)
-    }
-  }
-
-  const refresh = async () => {
-    if (!result) return
-    const response = await fetch(`/api/links/${encodeURIComponent(result.code)}`)
-    if (response.ok) {
-      const updated = await response.json()
-      setResult(updated)
-      setLinks((current) => current.map((link) => link.code === updated.code ? updated : link))
     }
   }
 
@@ -121,216 +141,263 @@ export function LinkWorkspace() {
   }
 
   const deleteLink = async (code: string) => {
-    if (!window.confirm("Delete this code? It will stop redirecting.")) return
     const response = await fetch(`/api/links/${encodeURIComponent(code)}`, { method: "DELETE" })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Unable to delete link")
     setLinks((current) => current.filter((link) => link.code !== code))
+    setTotals((current) => ({ ...current, links: Math.max(0, current.links - 1) }))
     setResult((current) => current && current.code === code ? null : current)
+    setPendingDelete(null)
   }
 
-  const trackedUrl = result ? `${origin}/${encodeURIComponent(result.code)}` : ""
-  const copy = (value: string) => navigator.clipboard.writeText(value)
+  const copy = async (value: string) => {
+    await navigator.clipboard.writeText(value)
+    setCopied(value)
+    window.setTimeout(() => setCopied((current) => current === value ? "" : current), 1600)
+  }
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    window.location.href = "/"
+  }
+
+  const displayName = user?.fullName || user?.email || "Account"
+  const maxVisits = Math.max(1, ...links.map((link) => link.visits))
+  const shortUrl = (code: string) => `${origin}/${code}`
 
   return (
-    <main className="min-h-screen bg-[#F3F6F4] text-[#10221C]">
-      <div className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
-        <header className="flex items-center justify-between rounded-full border border-[#10221C]/10 bg-white/80 px-4 py-3 backdrop-blur">
-          <Logo />
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#10221C]/45">
-            Link workspace
-          </span>
+    <div className="min-h-screen bg-[#f5f7fb] text-[#495057]">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-[#e6e9ef] bg-white px-4">
+          <Link href="/generate" className="flex items-center gap-3">
+            <img src="/icon.svg" alt="" width={32} height={32} className="h-8 w-8" />
+            <span className="text-sm font-bold tracking-[0.18em] text-[#1e2a3a]">AOZHU</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => document.getElementById("url")?.focus()}
+            className="hidden items-center rounded-full border border-[#e6e9ef] bg-white px-3 py-2 text-sm text-[#8a94a6] shadow-sm sm:flex"
+          >
+            <span className="px-2 pr-10">Quick shortener</span>
+            <span className="rounded border bg-white px-2 py-0.5 text-xs font-bold">CTRL</span>
+            <span className="ml-1 rounded border bg-white px-2 py-0.5 text-xs font-bold">K</span>
+          </button>
+          <div className="relative ml-auto">
+            <button type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold text-[#1e2a3a] hover:bg-[#f5f7fb]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#e8f0fb] text-xs font-bold text-[#3b7ddd]">{displayName.slice(0, 1).toUpperCase()}</span>
+              <span className="hidden sm:inline">{displayName}</span>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-44 rounded-md border border-[#e6e9ef] bg-white py-1 text-sm shadow-lg">
+                <button type="button" onClick={logout} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[#f5f7fb]">
+                  <LogOut size={15} /> Log out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
-        <div className="grid gap-8 py-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10">
-          <section>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#0E7A62]">Build and measure</p>
-            <h1 className="mt-4 max-w-2xl font-display text-5xl font-semibold leading-[0.95] tracking-tight sm:text-6xl">
-              Every useful link, in one ledger.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-[#10221C]/60">
-              Create a code-based redirect or a WhatsApp chat link. Each generated code is stored with its visit total.
-            </p>
-
-            <form onSubmit={create} className="mt-8 rounded-[1.75rem] border border-[#10221C]/10 bg-white p-5 shadow-[0_24px_60px_-36px_rgba(16,34,28,0.45)] sm:p-7">
-              <div className="mb-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#F3F6F4] p-1.5">
-                <ModeButton active={mode === "redirect"} onClick={() => setMode("redirect")} icon={<Link2 size={15} />} label="Code redirect" />
-                <ModeButton active={mode === "whatsapp"} onClick={() => setMode("whatsapp")} icon={<WhatsAppIcon />} label="WhatsApp" />
+        <main className="p-4 md:p-6">
+          <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <StatCard label="Links" value={totals.links} today={totals.linksToday} />
+              <StatCard label="Clicks" value={totals.clicks} today={totals.clicksToday} />
+            </div>
+            <section className="rounded-md border border-[#e6e9ef] bg-white shadow-sm">
+              <div className="border-b border-[#e6e9ef] px-4 py-3">
+                <h2 className="text-sm font-bold text-[#1e2a3a]">Recent visits</h2>
               </div>
-              {mode === "whatsapp" ? (
-                <>
-                  <label className="block text-sm font-semibold">
-                    Phone number with country code
-                    <input required inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="919999999999" aria-describedby="phone-help" className="mt-2 w-full rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 py-3 outline-none focus:border-[#0E7A62] focus:bg-white" />
-                    <span id="phone-help" className="mt-2 block text-xs font-normal text-[#10221C]/50">Digits only, including country code. Example: 919999999999.</span>
-                  </label>
-                  <label className="mt-5 block text-sm font-semibold">
-                    Opening message <span className="font-normal text-[#10221C]/45">optional</span>
-                    <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} rows={3} placeholder="Hi, I found you through your link..." className="mt-2 w-full resize-y rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 py-3 outline-none focus:border-[#0E7A62] focus:bg-white" />
-                  </label>
-                </>
-              ) : (
-                <label className="block text-sm font-semibold">
-                  Destination URL
-                  <input required type="url" inputMode="url" autoComplete="url" placeholder="https://example.com/offer" value={targetUrl} onChange={(event) => setTargetUrl(event.target.value)} aria-describedby="url-help" className="mt-2 w-full rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] px-3 py-3 outline-none focus:border-[#0E7A62] focus:bg-white" />
-                  <span id="url-help" className="mt-2 block text-xs font-normal text-[#10221C]/50">The destination is normalized, so trailing-slash variants share one link and count.</span>
-                </label>
-              )}
-              {mode === "redirect" && (
-                <label className="mt-5 block text-sm font-semibold">
-                  Custom code <span className="font-normal text-[#10221C]/45">optional</span>
-                  <div className="mt-2 flex items-center rounded-xl border border-[#10221C]/15 bg-[#F7FAF8] focus-within:border-[#0E7A62]">
-                    <span className="px-3 text-sm text-[#10221C]/40">/</span>
-                    <input pattern="[A-Za-z0-9_-]+" title="Use letters, numbers, underscores, or dashes" value={alias} onChange={(event) => setAlias(event.target.value)} placeholder="spring-offer" className="min-w-0 flex-1 bg-transparent px-1 py-3 outline-none" />
+              <div className="space-y-3 px-4 py-4">
+                {links.slice(0, 6).map((link) => (
+                  <div key={link.code} className="grid grid-cols-[88px_minmax(0,1fr)_48px] items-center gap-3 text-xs">
+                    <span className="truncate font-semibold text-[#1e2a3a]">/{link.code}</span>
+                    <span className="h-2 overflow-hidden rounded-full bg-[#e8eef8]">
+                      <span className="block h-full rounded-full bg-[#3b7ddd]" style={{ width: `${Math.max(4, (link.visits / maxVisits) * 100)}%` }} />
+                    </span>
+                    <span className="text-right font-semibold text-[#1e2a3a]">{link.visits.toLocaleString()}</span>
                   </div>
-                  <span className="mt-2 block text-xs font-normal text-[#10221C]/50">Letters, numbers, underscores, and dashes only.</span>
-                </label>
+                ))}
+                {!links.length && <p className="text-sm text-[#8a94a6]">No visits yet. Shorten a link to start counting.</p>}
+              </div>
+            </section>
+          </div>
+
+          <section id="shorten" className="mt-4 rounded-md border border-[#e6e9ef] bg-white p-4 shadow-sm md:p-5">
+            <form onSubmit={create}>
+              <div className="flex items-stretch overflow-hidden rounded-md border border-[#d9dee7]">
+                <div className="min-w-0 flex-1">
+                  {mode === "whatsapp" ? (
+                    <input id="phone" required inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="WhatsApp number with country code" className="h-12 w-full px-4 text-sm outline-none" />
+                  ) : (
+                    <input id="url" required type="url" inputMode="url" autoComplete="url" value={targetUrl} onChange={(event) => setTargetUrl(event.target.value)} placeholder="Paste a long link" className="h-12 w-full px-4 text-sm outline-none" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2 pr-2">
+                  <button type="button" aria-label="More options" onClick={() => setAdvanced((open) => !open)} className="grid h-9 w-9 place-items-center rounded-md border border-[#d9dee7] hover:bg-[#f5f7fb]">
+                    <SlidersHorizontal size={16} />
+                  </button>
+                  <button disabled={busy} className="h-9 rounded-md bg-[#3b7ddd] px-4 text-sm font-semibold text-white hover:bg-[#2f6bc4] disabled:opacity-50">
+                    {busy ? "..." : "Shorten"}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <div className="inline-flex overflow-hidden rounded-md border border-[#d9dee7] text-xs font-semibold">
+                  <button type="button" onClick={() => setMode("redirect")} className={`px-3 py-1.5 ${mode === "redirect" ? "bg-[#3b7ddd] text-white" : "bg-[#f8f9fb]"}`}>Link</button>
+                  <button type="button" onClick={() => setMode("whatsapp")} className={`px-3 py-1.5 ${mode === "whatsapp" ? "bg-[#3b7ddd] text-white" : "bg-[#f8f9fb]"}`}>WhatsApp</button>
+                </div>
+              </div>
+              {advanced && (
+                <div className="mt-4 grid gap-4 border-t border-[#e6e9ef] pt-4 md:grid-cols-2">
+                  {mode === "redirect" ? (
+                    <label className="text-sm font-bold text-[#1e2a3a]">
+                      Custom
+                      <p className="mt-1 text-xs font-normal text-[#8a94a6]">If you need a custom alias, enter it below.</p>
+                      <input pattern="[A-Za-z0-9_-]+" title="Use letters, numbers, underscores, or dashes" value={alias} onChange={(event) => setAlias(event.target.value)} placeholder="Type your custom alias here" className="mt-2 h-10 w-full rounded-md border border-[#d9dee7] px-3 text-sm font-normal outline-none focus:border-[#3b7ddd]" />
+                    </label>
+                  ) : (
+                    <label className="text-sm font-bold text-[#1e2a3a]">
+                      Opening message
+                      <p className="mt-1 text-xs font-normal text-[#8a94a6]">Optional text that opens in the WhatsApp chat.</p>
+                      <input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Hi, I found you through your link" className="mt-2 h-10 w-full rounded-md border border-[#d9dee7] px-3 text-sm font-normal outline-none focus:border-[#3b7ddd]" />
+                    </label>
+                  )}
+                </div>
               )}
-              {error && <p className="mt-4 text-sm text-[#9a3412]">{error}</p>}
-              <button disabled={busy} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#10221C] px-5 py-3 text-sm font-semibold text-[#F4F7F2] transition hover:bg-[#0E7A62] disabled:opacity-50">
-                {busy ? "Creating..." : "Create tracked link"}
-                <ArrowUpRight size={16} />
-              </button>
+              {error && <p className="mt-3 text-sm text-[#d9534f]">{error}</p>}
+              {result && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md bg-[#f5f7fb] px-3 py-3 text-sm">
+                  <span className="font-semibold text-[#1e2a3a]">Short link</span>
+                  <span className="min-w-0 flex-1 truncate">{shortUrl(result.code)}</span>
+                  <button type="button" onClick={() => copy(shortUrl(result.code))} className="font-semibold text-[#3b7ddd]">{copied === shortUrl(result.code) ? "Copied" : "Copy"}</button>
+                </div>
+              )}
             </form>
           </section>
 
-          <aside className="h-fit rounded-[1.75rem] bg-[#10221C] p-6 text-[#F4F7F2] lg:sticky lg:top-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C6F24E]">Supported links</p>
-            <dl className="mt-6 space-y-6 text-sm">
-              <Info title="Code redirect" text="/code stores a destination and increments visits." />
-              <Info title="WhatsApp" text="Tracked /code links open wa.me chats with an optional message." />
-            </dl>
-          </aside>
-        </div>
-
-        {result && (
-          <section className="rounded-[1.75rem] border border-[#10221C]/10 bg-white p-6 sm:p-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0E7A62]">Latest link</p>
-                <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">{result.visits.toLocaleString()} visits recorded</h2>
-              </div>
-              <button onClick={refresh} className="inline-flex items-center gap-2 text-sm font-semibold hover:text-[#0E7A62]">
-                <RefreshCw size={15} /> Refresh count
+          <section id="links" className="mt-4">
+            <div className="mb-3 flex items-center">
+              <h2 className="text-lg font-bold text-[#1e2a3a]">Recent links</h2>
+            </div>
+            <div className="mb-3 flex items-center justify-between rounded-md border border-[#e6e9ef] bg-white px-3 py-3 shadow-sm">
+              <button type="button" onClick={() => loadLinks(1)} className="text-sm font-semibold text-[#3b7ddd]">Refresh</button>
+              <button type="button" aria-label="Search links" onClick={() => setSearchOpen((open) => !open)} className="grid h-9 w-9 place-items-center rounded-md border border-[#d9dee7]">
+                {searchOpen ? <X size={16} /> : <Search size={16} />}
               </button>
             </div>
-            <div className="mt-7 grid gap-4 md:grid-cols-2">
-              <Result label="Tracked URL" value={trackedUrl} onCopy={() => copy(trackedUrl)} />
-              <div className="rounded-2xl bg-[#F3F6F4] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Destination</p>
-                <DestinationEditor code={result.code} targetUrl={result.target_url} onSave={updateDestination} />
-              </div>
+            {searchOpen && (
+              <form onSubmit={submitSearch} className="mb-3 flex overflow-hidden rounded-md border border-[#d9dee7] bg-white">
+                <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search for links" aria-label="Search for links" className="h-12 min-w-0 flex-1 px-4 text-sm outline-none" />
+                <button className="px-4 text-[#3b7ddd]"><Search size={16} /></button>
+              </form>
+            )}
+            {searchTerm && <p className="mb-3 text-xs text-[#8a94a6]">Showing results for “{searchTerm}”.</p>}
+            <div className="space-y-2">
+              {links.map((link) => (
+                <LinkCard
+                  key={link.code}
+                  link={link}
+                  shortUrl={shortUrl(link.code)}
+                  copied={copied === shortUrl(link.code)}
+                  onCopy={() => copy(shortUrl(link.code))}
+                  onSave={updateDestination}
+                  onDelete={() => setPendingDelete(link.code)}
+                />
+              ))}
+              {!links.length && !loadingMore && <p className="rounded-md border border-[#e6e9ef] bg-white px-4 py-8 text-sm text-[#8a94a6]">No tracked links match this search.</p>}
+            </div>
+            <div ref={sentinel} className="flex flex-col items-center gap-3 py-6 text-sm text-[#8a94a6]">
+              {loadingMore ? "Loading more links..." : hasMore ? (
+                <button type="button" onClick={() => loadLinks(pageRef.current + 1)} className="rounded-md border border-[#d9dee7] bg-white px-4 py-2 font-semibold text-[#1e2a3a]">Load more</button>
+              ) : "All matching links loaded"}
             </div>
           </section>
-        )}
+        </main>
 
-        <section className="py-10">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0E7A62]">Link ledger</p>
-              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">Recent links and visits</h2>
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#1e2a3a]/40 px-4">
+          <div className="w-full max-w-md rounded-md bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b border-[#e6e9ef] px-5 py-4">
+              <h3 className="font-bold text-[#1e2a3a]">Are you sure you want to delete this?</h3>
+              <button type="button" aria-label="Close" onClick={() => setPendingDelete(null)}><X size={16} /></button>
             </div>
-            <button onClick={() => loadLinks(1)} className="inline-flex items-center gap-2 text-sm font-semibold hover:text-[#0E7A62]">
-              <RefreshCw size={15} /> Refresh
-            </button>
+            <p className="px-5 py-4 text-sm">You are trying to delete a record. This action is permanent and cannot be reversed.</p>
+            <div className="flex justify-end gap-2 px-5 py-4">
+              <button type="button" onClick={() => setPendingDelete(null)} className="rounded-md bg-[#6c757d] px-4 py-2 text-sm font-semibold text-white">Cancel</button>
+              <button type="button" onClick={() => deleteLink(pendingDelete)} className="rounded-md bg-[#d9534f] px-4 py-2 text-sm font-semibold text-white">Confirm</button>
+            </div>
           </div>
-          <form onSubmit={submitSearch} className="mt-6 flex max-w-2xl overflow-hidden rounded-full border border-[#10221C]/15 bg-white focus-within:border-[#0E7A62]">
-            <Search className="m-3 shrink-0 text-[#10221C]/45" size={18} />
-            <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search by destination or link code" aria-label="Search links and visit counts" className="min-w-0 flex-1 bg-transparent py-3 pr-3 text-sm outline-none" />
-            <button type="submit" className="px-5 text-sm font-semibold text-[#10221C] hover:bg-[#10221C] hover:text-[#F4F7F2]">Search</button>
-          </form>
-          {searchTerm && <p className="mt-3 text-xs text-[#10221C]/50">Showing results for “{searchTerm}”.</p>}
-          <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#10221C]/10 bg-white">
-            {links.map((link) => <LedgerRow key={link.code} link={link} origin={origin} onSave={updateDestination} onDelete={deleteLink} />)}
-            {!links.length && !loadingMore && <p className="px-5 py-8 text-sm text-[#10221C]/55">No tracked links match this search.</p>}
-          </div>
-          <div ref={sentinel} className="flex flex-col items-center gap-3 py-8 text-sm text-[#10221C]/50">
-            {loadingMore ? "Loading more links..." : hasMore ? (
-              <>
-                <span>Scroll for more</span>
-                <button type="button" onClick={() => loadLinks(pageRef.current + 1)} className="rounded-full border border-[#10221C]/20 px-4 py-2 font-semibold text-[#10221C] hover:border-[#0E7A62]">Load more</button>
-              </>
-            ) : "All matching links loaded"}
-          </div>
-        </section>
-      </div>
-    </main>
-  )
-}
-
-function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
-  return (
-    <button type="button" onClick={onClick} className={`flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-semibold sm:text-sm ${active ? "bg-[#10221C] text-[#F4F7F2]" : "text-[#10221C]/50"}`}>
-      {icon}{label}
-    </button>
-  )
-}
-
-function WhatsAppIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-[#25D366]">
-      <path d="M20.52 3.48A11.82 11.82 0 0 0 12.08 0C5.55 0 .24 5.31.24 11.84c0 2.09.55 4.13 1.59 5.93L.14 23.86l6.23-1.63a11.82 11.82 0 0 0 5.71 1.46h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.15-3.41-8.37ZM12.09 21.7h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.69.97.99-3.6-.23-.37a9.82 9.82 0 1 1 8.31 4.58Zm5.39-7.36c-.3-.15-1.78-.88-2.05-.98-.27-.1-.47-.15-.67.15-.2.3-.77.98-.94 1.18-.17.2-.35.22-.65.07-.3-.15-1.24-.46-2.36-1.46-.87-.78-1.46-1.74-1.63-2.04-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.21 5.09 4.5.71.31 1.27.5 1.7.64.72.23 1.38.2 1.9.12.58-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.17-1.43-.07-.12-.27-.2-.57-.35Z" />
-    </svg>
-  )
-}
-
-function Info({ title, text }: { title: string; text: string }) {
-  return (
-    <div>
-      <dt className="font-semibold text-white">{title}</dt>
-      <dd className="mt-1 leading-6 text-[#F4F7F2]/60">{text}</dd>
-    </div>
-  )
-}
-
-function Result({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
-  return (
-    <div className="rounded-2xl bg-[#F3F6F4] p-5">
-      <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">{label}</p>
-      <p className="mt-4 break-all text-sm leading-6">{value}</p>
-      <button type="button" onClick={onCopy} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold hover:text-[#0E7A62]">
-        <Copy size={14} /> Copy
-      </button>
-    </div>
-  )
-}
-
-function LedgerRow({ link, origin, onSave, onDelete }: { link: LinkRecord; origin: string; onSave: (code: string, targetUrl: string) => Promise<void>; onDelete: (code: string) => Promise<void> }) {
-  const isWhatsApp = link.target_url.includes("wa.me/") || link.target_url.includes("api.whatsapp.com/")
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState("")
-
-  const remove = async () => {
-    setDeleting(true)
-    setDeleteError("")
-    try {
-      await onDelete(link.code)
-    } catch (caught) {
-      setDeleteError(caught instanceof Error ? caught.message : "Unable to delete link")
-      setDeleting(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-4 border-b border-[#10221C]/8 px-5 py-5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0E7A62]">
-          <ScrollText size={14} /> {isWhatsApp ? "WhatsApp" : "Code redirect"}
         </div>
-        <p className="mt-2 truncate text-sm font-semibold">{link.target_url}</p>
-        <p className="mt-1 truncate text-sm text-[#10221C]/50">{origin}/{link.code}</p>
-        <DestinationEditor code={link.code} targetUrl={link.target_url} onSave={onSave} />
-        {deleteError && <p className="mt-2 text-sm text-[#9a3412]">{deleteError}</p>}
-      </div>
-      <div className="sm:text-right">
-        <p className="text-xs uppercase tracking-[0.16em] text-[#10221C]/45">Visits</p>
-        <p className="mt-1 font-display text-3xl font-semibold">{link.visits.toLocaleString()}</p>
-        <button type="button" onClick={remove} disabled={deleting} className="mt-3 text-sm font-semibold text-[#9a3412] hover:underline disabled:opacity-50">
-          {deleting ? "Deleting..." : "Delete"}
-        </button>
-      </div>
+      )}
     </div>
   )
+}
+
+function StatCard({ label, value, today }: { label: string; value: number; today?: number }) {
+  return (
+    <div className="rounded-md border border-[#e6e9ef] bg-white p-4 shadow-sm">
+      <h3 className="text-sm font-bold text-[#1e2a3a]">{label}</h3>
+      <p className="mt-3 text-3xl font-semibold text-[#1e2a3a]">{value.toLocaleString()}</p>
+      {typeof today === "number" && (
+        <p className="mt-2 text-sm">
+          <span className="text-[#1cbb8c]">+{today.toLocaleString()}</span> <span className="text-[#8a94a6]">Today</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+function LinkCard({ link, shortUrl, copied, onCopy, onSave, onDelete }: { link: LinkRecord; shortUrl: string; copied: boolean; onCopy: () => void; onSave: (code: string, targetUrl: string) => Promise<void>; onDelete: () => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <article className="rounded-md border border-[#e6e9ef] bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <a href={link.target_url} target="_blank" rel="nofollow" className="truncate text-sm font-bold text-[#1e2a3a] hover:text-[#3b7ddd]">{link.target_url}</a>
+            <div className="relative">
+              <button type="button" aria-label="Link actions" onClick={() => setOpen((current) => !current)} className="rounded-md p-1 hover:bg-[#f5f7fb]">
+                <MoreVertical size={16} />
+              </button>
+              {open && (
+                <div className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-[#e6e9ef] bg-white py-1 text-sm shadow-lg">
+                  <button type="button" onClick={() => { onCopy(); setOpen(false) }} className="block w-full px-3 py-2 text-left hover:bg-[#f5f7fb]">Copy</button>
+                  <button type="button" onClick={() => { onDelete(); setOpen(false) }} className="block w-full px-3 py-2 text-left text-[#d9534f] hover:bg-[#f5f7fb]">Delete</button>
+                </div>
+              )}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-[#8a94a6]">
+            <span>{shortUrl}</span>
+            <button type="button" onClick={onCopy} className="ml-2 font-semibold text-[#3b7ddd]">{copied ? "Copied" : "Copy"}</button>
+          </p>
+          <p className="mt-1 text-xs font-semibold text-[#3b7ddd]">
+            <span className="font-normal text-[#8a94a6]">{timeAgo(link.created_at)}</span>
+            {" · "}
+            <Link href={`/stats/${encodeURIComponent(link.code)}`}>
+              {link.visits.toLocaleString()} clicks ({(link.unique_visits || 0).toLocaleString()} unique)
+            </Link>
+          </p>
+          <DestinationEditor code={link.code} targetUrl={link.target_url} onSave={onSave} />
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function timeAgo(value?: string) {
+  if (!value) return "Just now"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000)
+  if (minutes < 1) return "Just now"
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`
+  const days = Math.floor(hours / 24)
+  if (days < 14) return `${days} day${days === 1 ? "" : "s"} ago`
+  const weeks = Math.floor(days / 7)
+  return `${weeks} week${weeks === 1 ? "" : "s"} ago`
 }
 
 function DestinationEditor({ code, targetUrl, onSave }: { code: string; targetUrl: string; onSave: (code: string, targetUrl: string) => Promise<void> }) {
@@ -357,30 +424,21 @@ function DestinationEditor({ code, targetUrl, onSave }: { code: string; targetUr
 
   if (!editing) {
     return (
-      <div className="mt-3">
-        <p className="break-all text-sm leading-6 text-[#10221C]/70">{targetUrl}</p>
-        <button type="button" onClick={() => setEditing(true)} className="mt-2 text-sm font-semibold text-[#0E7A62] hover:underline">
-          Edit destination
-        </button>
-      </div>
+      <button type="button" onClick={() => setEditing(true)} className="mt-2 text-xs font-semibold text-[#3b7ddd]">
+        Edit destination
+      </button>
     )
   }
 
   return (
     <form onSubmit={save} className="mt-3 space-y-2">
-      <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#10221C]/45">
-        Final destination
-        <input required type="url" value={draft} onChange={(event) => setDraft(event.target.value)} className="mt-2 w-full rounded-xl border border-[#10221C]/15 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-[#10221C] outline-none focus:border-[#0E7A62]" />
-      </label>
-      {error && <p className="text-sm text-[#9a3412]">{error}</p>}
+      <input required type="url" value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Final destination" className="h-10 w-full rounded-md border border-[#d9dee7] px-3 text-sm outline-none focus:border-[#3b7ddd]" />
+      {error && <p className="text-sm text-[#d9534f]">{error}</p>}
       <div className="flex gap-3">
-        <button disabled={saving} className="rounded-full bg-[#10221C] px-4 py-2 text-sm font-semibold text-[#F4F7F2] hover:bg-[#0E7A62] disabled:opacity-50">
-          {saving ? "Saving..." : "Save"}
-        </button>
-        <button type="button" onClick={() => { setEditing(false); setDraft(targetUrl); setError("") }} className="text-sm font-semibold text-[#10221C]/60">
-          Cancel
-        </button>
+        <button disabled={saving} className="rounded-md bg-[#3b7ddd] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save"}</button>
+        <button type="button" onClick={() => { setEditing(false); setDraft(targetUrl); setError("") }} className="text-xs font-semibold text-[#6c757d]">Cancel</button>
       </div>
     </form>
   )
 }
+

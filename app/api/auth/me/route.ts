@@ -24,7 +24,15 @@ export async function GET(request: Request) {
     const db = readDb()
     const user = db.users.find((u) => u.id === payload.id)
     if (!user) {
-      return NextResponse.json({ user: null }, { status: 200 })
+      return NextResponse.json({
+        user: {
+          id: payload.id,
+          email: payload.email,
+          fullName: payload.fullName,
+          role: payload.role,
+          paymentStatus: payload.paymentStatus,
+        },
+      })
     }
 
     return NextResponse.json({

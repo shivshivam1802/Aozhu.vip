@@ -1,6 +1,7 @@
+import { after } from "next/server";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { visitTrackedLink } from "@/lib/neon";
+import { getLinkDestination, recordVisit } from "@/lib/neon";
 import { visitFromHeaders, withLocation } from "@/lib/visit";
 
 export default async function Page({
@@ -9,10 +10,18 @@ export default async function Page({
   params: Promise<{ phone: string }>;
 }) {
   const { phone } = await params;
-  const headerList = await headers();
-  const visit = await withLocation(visitFromHeaders(headerList), headerList);
-  const trackedDestination = await visitTrackedLink(phone, visit);
-  if (trackedDestination) redirect(trackedDestination);
+  const link = await getLinkDestination(phone);
+  if (!link?.target_url) notFound();
 
-  notFound();
+  const headerList = await headers();
+  const visitBase = visitFromHeaders(headerList);
+  after(async () => {
+    try {
+      await recordVisit(link.code, await withLocation(visitBase, headerList));
+    } catch (error) {
+      console.error("Failed to record tracked link visit:", error);
+    }
+  });
+
+  redirect(link.target_url);
 }

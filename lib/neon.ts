@@ -30,37 +30,78 @@ export function buildLinkCode(targetUrl: string, alias?: string) {
   return `link_${crypto.createHash("sha256").update(normalized).digest("base64url").replace(/=+$/g, "").slice(0, 16)}`
 }
 
+let linksSchemaPromise: Promise<void> | null = null
+
+const DESTINATION_CACHE_LIMIT = 2000
+const destinationCache = new Map<string, { code: string; url: string; expiresAt: number }>()
+
+export function cacheLinkDestination(code: string, url: string) {
+  if (!code || !url) return
+  if (destinationCache.size >= DESTINATION_CACHE_LIMIT) {
+    const oldest = destinationCache.keys().next().value
+    if (oldest) destinationCache.delete(oldest)
+  }
+  const entry = { code, url, expiresAt: Date.now() + 5 * 60 * 1000 }
+  destinationCache.set(code, entry)
+  destinationCache.set(code.toLowerCase(), entry)
+}
+
+function peekCachedLink(code: string) {
+  const cached = destinationCache.get(code) || destinationCache.get(code.toLowerCase())
+  if (!cached) return null
+  if (cached.expiresAt <= Date.now()) {
+    destinationCache.delete(code)
+    destinationCache.delete(code.toLowerCase())
+    return null
+  }
+  return { code: cached.code, target_url: cached.url }
+}
+
+export function forgetLinkDestination(code: string) {
+  destinationCache.delete(code)
+  destinationCache.delete(code.toLowerCase())
+}
+
 export async function ensureLinksTable() {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL_POOLED or DATABASE_URL is not configured")
   }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS links (
-      code TEXT PRIMARY KEY,
-      target_url TEXT NOT NULL,
-      visits INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `
-  await sql`
-    CREATE TABLE IF NOT EXISTS link_visits (
-      id BIGSERIAL PRIMARY KEY,
-      code TEXT NOT NULL,
-      visitor_key TEXT NOT NULL,
-      ip TEXT NOT NULL DEFAULT '',
-      country TEXT NOT NULL DEFAULT '',
-      city TEXT NOT NULL DEFAULT '',
-      device TEXT NOT NULL DEFAULT '',
-      browser TEXT NOT NULL DEFAULT '',
-      language TEXT NOT NULL DEFAULT '',
-      referrer TEXT NOT NULL DEFAULT '',
-      visit_index INTEGER NOT NULL DEFAULT 1,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `
-  await sql`CREATE INDEX IF NOT EXISTS link_visits_code_created_idx ON link_visits (code, created_at DESC)`
-  await sql`CREATE INDEX IF NOT EXISTS link_visits_code_visitor_idx ON link_visits (code, visitor_key)`
+  if (!linksSchemaPromise) {
+    linksSchemaPromise = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS links (
+          code TEXT PRIMARY KEY,
+          target_url TEXT NOT NULL,
+          visits INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `
+      await sql`
+        CREATE TABLE IF NOT EXISTS link_visits (
+          id BIGSERIAL PRIMARY KEY,
+          code TEXT NOT NULL,
+          visitor_key TEXT NOT NULL,
+          ip TEXT NOT NULL DEFAULT '',
+          country TEXT NOT NULL DEFAULT '',
+          city TEXT NOT NULL DEFAULT '',
+          device TEXT NOT NULL DEFAULT '',
+          browser TEXT NOT NULL DEFAULT '',
+          language TEXT NOT NULL DEFAULT '',
+          referrer TEXT NOT NULL DEFAULT '',
+          visit_index INTEGER NOT NULL DEFAULT 1,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `
+      await sql`CREATE INDEX IF NOT EXISTS link_visits_code_created_idx ON link_visits (code, created_at DESC)`
+      await sql`CREATE INDEX IF NOT EXISTS link_visits_code_visitor_idx ON link_visits (code, visitor_key)`
+    })().catch((error) => {
+      linksSchemaPromise = null
+      throw error
+    })
+  }
+
+  await linksSchemaPromise
 }
 
 export async function findOrCreateLink(targetUrl: string, alias?: string) {
@@ -75,21 +116,54 @@ export async function findOrCreateLink(targetUrl: string, alias?: string) {
     RETURNING code, target_url, visits
   `) as Array<{ code: string; target_url: string; visits: number }>
 
-  return rows[0]
+  const link = rows[0]
+  if (link) cacheLinkDestination(link.code, link.target_url)
+  return link
+}
+
+/** Fast destination lookup for redirects. Skips visit writes and geo. */
+export async function getLinkDestination(code: string) {
+  const normalized = decodeURIComponent(code).trim()
+  if (!normalized) return null
+
+  const cached = peekCachedLink(normalized)
+  if (cached) return cached
+
+  const candidates = [...new Set([normalized, normalized.toLowerCase()])]
+  for (const candidate of candidates) {
+    try {
+      const rows = (await sql`
+        SELECT code, target_url
+        FROM links
+        WHERE code = ${candidate}
+        LIMIT 1
+      `) as Array<{ code: string; target_url: string }>
+      if (rows[0]) {
+        cacheLinkDestination(rows[0].code, rows[0].target_url)
+        return rows[0]
+      }
+    } catch {
+      await ensureLinksTable()
+      const rows = (await sql`
+        SELECT code, target_url
+        FROM links
+        WHERE code = ${candidate}
+        LIMIT 1
+      `) as Array<{ code: string; target_url: string }>
+      if (rows[0]) {
+        cacheLinkDestination(rows[0].code, rows[0].target_url)
+        return rows[0]
+      }
+    }
+  }
+
+  return null
 }
 
 export async function visitTrackedLink(code: string, visit?: VisitInput) {
-  const normalized = decodeURIComponent(code).trim()
-  if (!normalized) return ""
-
-  await ensureLinksTable()
-  const candidates = [...new Set([normalized, normalized.toLowerCase()])]
-  for (const candidate of candidates) {
-    const rows = (await sql`SELECT code FROM links WHERE code = ${candidate}`) as Array<{ code: string }>
-    if (rows[0]) return recordVisit(rows[0].code, visit)
-  }
-
-  return ""
+  const link = await getLinkDestination(code)
+  if (!link) return ""
+  return recordVisit(link.code, visit)
 }
 
 export async function recordVisit(code: string, visit?: VisitInput) {
@@ -104,12 +178,7 @@ export async function recordVisit(code: string, visit?: VisitInput) {
     language: "",
     referrer: "Direct, email or others",
   }
-  const prior = (await sql`
-    SELECT COUNT(*)::int AS n
-    FROM link_visits
-    WHERE code = ${code} AND visitor_key = ${details.visitorKey}
-  `) as Array<{ n: number }>
-  const visitIndex = Number(prior[0]?.n || 0) + 1
+  // Single-statement visit_index avoids a separate COUNT round-trip.
   await sql`
     INSERT INTO link_visits (code, visitor_key, ip, country, city, device, browser, language, referrer, visit_index)
     VALUES (
@@ -122,7 +191,11 @@ export async function recordVisit(code: string, visit?: VisitInput) {
       ${details.browser},
       ${details.language},
       ${details.referrer},
-      ${visitIndex}
+      (
+        SELECT COUNT(*)::int + 1
+        FROM link_visits
+        WHERE code = ${code} AND visitor_key = ${details.visitorKey}
+      )
     )
   `
   if (details.ip && (details.country || details.city)) {
@@ -141,7 +214,9 @@ export async function recordVisit(code: string, visit?: VisitInput) {
     RETURNING target_url
   `) as Array<{ target_url: string }>
 
-  return rows[0]?.target_url || ""
+  const targetUrl = rows[0]?.target_url || ""
+  if (targetUrl) cacheLinkDestination(code, targetUrl)
+  return targetUrl
 }
 
 export async function incrementLinkVisits(code: string) {

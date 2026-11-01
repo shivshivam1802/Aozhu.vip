@@ -1,16 +1,27 @@
-import { NextResponse } from "next/server"
-import { visitTrackedLink } from "@/lib/neon"
+import { after, NextResponse } from "next/server"
+import { getLinkDestination, recordVisit } from "@/lib/neon"
 import { visitFromHeaders, withLocation } from "@/lib/visit"
 
-export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
   try {
-    const destination = await visitTrackedLink(code, await withLocation(visitFromHeaders(_request.headers), _request.headers))
-    if (destination) return NextResponse.redirect(destination)
+    const link = await getLinkDestination(code)
+    if (link?.target_url) {
+      const headerList = request.headers
+      const visitBase = visitFromHeaders(headerList)
+      after(async () => {
+        try {
+          await recordVisit(link.code, await withLocation(visitBase, headerList))
+        } catch (error) {
+          console.error("Failed to record tracked link visit:", error)
+        }
+      })
+      return NextResponse.redirect(link.target_url)
+    }
   } catch (error) {
     console.error("Failed to forward tracked link:", error)
   }
 
-  return NextResponse.redirect(new URL("/?error=invalid_url", _request.url))
+  return NextResponse.redirect(new URL("/?error=invalid_url", request.url))
 }
